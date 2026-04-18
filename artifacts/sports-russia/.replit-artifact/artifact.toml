@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/"
+title = "Спорт России"
+version = "1.0.0"
+id = "artifacts/sports-russia"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/" ]
+localPort = 19356
+
+[services.development]
+run = "pnpm --filter @workspace/sports-russia run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/sports-russia", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/sports-russia", "run", "serve" ]
+
+[services.env]
+PORT = "19356"
+BASE_PATH = "/"

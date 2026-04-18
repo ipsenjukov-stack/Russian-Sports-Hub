@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "923IbslMK8VJgd0CN3KlF"
+uri = "file://artifacts/sports-russia/assets/images/icon.png"
+type = "image"
+title = "russia sports app icon"
