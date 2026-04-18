@@ -8,18 +8,17 @@ import {
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
+import { useAllMatches } from "@/hooks/useSportsData";
 import { SportFilterBar } from "@/components/SportFilterBar";
 import { MatchCard } from "@/components/MatchCard";
 import { SectionHeader } from "@/components/SectionHeader";
 import { LiveCounter } from "@/components/LiveCounter";
 import { EmptyState } from "@/components/EmptyState";
+import { LoadingState } from "@/components/LoadingState";
+import { ErrorState } from "@/components/ErrorState";
 import { SportType } from "@/types/sports";
-import {
-  getLiveMatches,
-  getFinishedMatches,
-  getUpcomingMatches,
-} from "@/data/mockData";
 
 type FilterOption = "all" | SportType;
 
@@ -27,17 +26,15 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<FilterOption>("all");
-  const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
 
   const sport = filter === "all" ? undefined : filter;
-  const liveMatches = getLiveMatches(sport);
-  const finishedMatches = getFinishedMatches(sport);
-  const upcomingMatches = getUpcomingMatches(sport);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1200);
-  };
+  const matches = (allMatches || []).filter((m) => !sport || m.sport === sport);
+  const liveMatches = matches.filter((m) => m.status === "live");
+  const finishedMatches = matches.filter((m) => m.status === "finished");
+  const upcomingMatches = matches.filter((m) => m.status === "upcoming");
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
@@ -58,60 +55,62 @@ export default function HomeScreen() {
 
       <SportFilterBar selected={filter} onSelect={setFilter} />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={{ paddingBottom: bottomPadding }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {liveMatches.length > 0 && (
-          <>
-            <LiveCounter count={liveMatches.length} />
-            <SectionHeader title="Идут сейчас" count={liveMatches.length} live />
-            {liveMatches.map((match) => (
-              <MatchCard key={match.id} match={match} />
-            ))}
-          </>
-        )}
-
-        {finishedMatches.length > 0 && (
-          <>
-            <SectionHeader title="Результаты" count={finishedMatches.length} />
-            {finishedMatches.map((match) => (
-              <MatchCard key={match.id} match={match} />
-            ))}
-          </>
-        )}
-
-        {upcomingMatches.length > 0 && (
-          <>
-            <SectionHeader title="Предстоящие" count={upcomingMatches.length} />
-            {upcomingMatches.map((match) => (
-              <MatchCard key={match.id} match={match} />
-            ))}
-          </>
-        )}
-
-        {liveMatches.length === 0 &&
-          finishedMatches.length === 0 &&
-          upcomingMatches.length === 0 && (
-            <EmptyState message="Матчи не найдены для выбранного вида спорта" />
+      {isLoading ? (
+        <LoadingState count={5} />
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} />
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={{ paddingBottom: bottomPadding }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={false}
+              onRefresh={() => queryClient.invalidateQueries({ queryKey: ["allMatches"] })}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          {liveMatches.length > 0 && (
+            <>
+              <LiveCounter count={liveMatches.length} />
+              <SectionHeader title="Идут сейчас" count={liveMatches.length} live />
+              {liveMatches.map((match) => (
+                <MatchCard key={match.id} match={match} />
+              ))}
+            </>
           )}
-      </ScrollView>
+
+          {finishedMatches.length > 0 && (
+            <>
+              <SectionHeader title="Результаты" count={finishedMatches.length} />
+              {finishedMatches.map((match) => (
+                <MatchCard key={match.id} match={match} />
+              ))}
+            </>
+          )}
+
+          {upcomingMatches.length > 0 && (
+            <>
+              <SectionHeader title="Предстоящие" count={upcomingMatches.length} />
+              {upcomingMatches.map((match) => (
+                <MatchCard key={match.id} match={match} />
+              ))}
+            </>
+          )}
+
+          {!isLoading && matches.length === 0 && (
+            <EmptyState message="Матчи не найдены" />
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingBottom: 12,
@@ -138,10 +137,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  flagText: {
-    fontSize: 22,
-  },
-  scroll: {
-    flex: 1,
-  },
+  flagText: { fontSize: 22 },
+  scroll: { flex: 1 },
 });

@@ -5,33 +5,47 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  RefreshControl,
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
+import { useAllMatches } from "@/hooks/useSportsData";
 import { MatchCard } from "@/components/MatchCard";
 import { SportFilterBar } from "@/components/SportFilterBar";
 import { SectionHeader } from "@/components/SectionHeader";
 import { EmptyState } from "@/components/EmptyState";
+import { LoadingState } from "@/components/LoadingState";
+import { ErrorState } from "@/components/ErrorState";
 import { SportType } from "@/types/sports";
-import { getUpcomingMatches } from "@/data/mockData";
 
 type FilterOption = "all" | SportType;
 
 const DATE_FILTERS = [
+  { key: "all", label: "Все" },
   { key: "today", label: "Сегодня" },
   { key: "tomorrow", label: "Завтра" },
-  { key: "week", label: "На неделю" },
 ];
 
 export default function ScheduleScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [sport, setSport] = useState<FilterOption>("all");
-  const [dateFilter, setDateFilter] = useState("today");
+  const [dateFilter, setDateFilter] = useState("all");
+  const queryClient = useQueryClient();
+  const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
 
   const sportType = sport === "all" ? undefined : sport;
-  const upcoming = getUpcomingMatches(sportType);
+  let upcoming = (allMatches || []).filter(
+    (m) => m.status === "upcoming" && (!sportType || m.sport === sportType)
+  );
+
+  if (dateFilter === "today") {
+    upcoming = upcoming.filter((m) => m.date === "Сегодня");
+  } else if (dateFilter === "tomorrow") {
+    upcoming = upcoming.filter((m) => m.date === "Завтра");
+  }
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
@@ -74,22 +88,35 @@ export default function ScheduleScreen() {
 
       <SportFilterBar selected={sport} onSelect={setSport} />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={{ paddingBottom: bottomPadding }}
-        showsVerticalScrollIndicator={false}
-      >
-        {upcoming.length > 0 ? (
-          <>
-            <SectionHeader title="Предстоящие матчи" count={upcoming.length} />
-            {upcoming.map((match) => (
-              <MatchCard key={match.id} match={match} />
-            ))}
-          </>
-        ) : (
-          <EmptyState message="Предстоящих матчей не найдено" />
-        )}
-      </ScrollView>
+      {isLoading ? (
+        <LoadingState count={4} />
+      ) : isError ? (
+        <ErrorState onRetry={refetch} />
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={{ paddingBottom: bottomPadding }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={false}
+              onRefresh={() => queryClient.invalidateQueries({ queryKey: ["allMatches"] })}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          {upcoming.length > 0 ? (
+            <>
+              <SectionHeader title="Предстоящие матчи" count={upcoming.length} />
+              {upcoming.map((match) => (
+                <MatchCard key={match.id} match={match} />
+              ))}
+            </>
+          ) : (
+            <EmptyState message="Предстоящих матчей не найдено" />
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }
