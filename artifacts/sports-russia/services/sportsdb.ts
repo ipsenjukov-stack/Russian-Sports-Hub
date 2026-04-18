@@ -1,13 +1,26 @@
 import { Match, SportType } from "@/types/sports";
+import { Platform } from "react-native";
 
-const BASE_URL = "https://www.thesportsdb.com/api/v1/json/3";
+// On native, EXPO_PUBLIC_DOMAIN is set and we need an absolute URL.
+// On web (Replit preview), the shared proxy routes /api → Express, so a relative path works.
+function getApiBase(): string {
+  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
+  if (domain) return `https://${domain}`;
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return "";
+}
 
-export const LEAGUES: { id: string; sport: SportType; name: string; seasons: string[] }[] = [
-  { id: "4355", sport: "football", name: "Российская Премьер-лига", seasons: ["2025-2026", "2024-2025"] },
-  { id: "4920", sport: "hockey",   name: "КХЛ",                     seasons: ["2025-2026", "2024-2025"] },
-  { id: "4476", sport: "basketball", name: "Единая лига ВТБ",       seasons: ["2024-2025", "2023-2024"] },
-  { id: "4545", sport: "volleyball", name: "Суперлига Волейбол",    seasons: ["2024-2025", "2023-2024"] },
-];
+const FINISHED_STATUSES = new Set([
+  "Match Finished",
+  "FT",
+  "AP",
+  "AET",
+  "Pen",
+  "Post",
+  "Full Time",
+]);
 
 export interface SportsDBEvent {
   idEvent: string;
@@ -20,15 +33,15 @@ export interface SportsDBEvent {
   strTime: string | null;
   strStatus: string | null;
   strVenue: string | null;
-  strSport: string;
-  strSeason: string;
-  strHomeTeamBadge?: string;
-  strAwayTeamBadge?: string;
+  // injected server-side
+  _sport: SportType;
+  _leagueName: string;
 }
 
-const FINISHED_STATUSES = new Set(["Match Finished", "FT", "AP", "AET", "Pen", "Post", "Full Time"]);
+export function mapEventToMatch(event: SportsDBEvent): Match {
+  const sport = event._sport;
+  const leagueName = event._leagueName;
 
-export function mapEventToMatch(event: SportsDBEvent, sport: SportType, leagueName: string): Match {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const eventDate = new Date(event.dateEvent);
@@ -37,12 +50,13 @@ export function mapEventToMatch(event: SportsDBEvent, sport: SportType, leagueNa
   let status: Match["status"];
   if (event.strStatus && FINISHED_STATUSES.has(event.strStatus)) {
     status = "finished";
-  } else if (event.intHomeScore !== null && event.intAwayScore !== null) {
-    if (eventDate <= today) {
-      status = "finished";
-    } else {
-      status = "live";
-    }
+  } else if (
+    event.intHomeScore !== null &&
+    event.intAwayScore !== null &&
+    event.intHomeScore !== "" &&
+    event.intAwayScore !== ""
+  ) {
+    status = eventDate <= today ? "finished" : "live";
   } else if (eventDate.getTime() === today.getTime()) {
     status = "live";
   } else if (eventDate < today) {
@@ -61,22 +75,38 @@ export function mapEventToMatch(event: SportsDBEvent, sport: SportType, leagueNa
     homeTeam: {
       id: event.strHomeTeam.toLowerCase().replace(/\s+/g, "-"),
       name: event.strHomeTeam,
-      shortName: event.strHomeTeam.slice(0, 3).toUpperCase(),
+      shortName: abbrev(event.strHomeTeam),
       logo: "",
     },
     awayTeam: {
       id: event.strAwayTeam.toLowerCase().replace(/\s+/g, "-"),
       name: event.strAwayTeam,
-      shortName: event.strAwayTeam.slice(0, 3).toUpperCase(),
+      shortName: abbrev(event.strAwayTeam),
       logo: "",
     },
-    homeScore: event.intHomeScore !== null ? parseInt(event.intHomeScore) : null,
-    awayScore: event.intAwayScore !== null ? parseInt(event.intAwayScore) : null,
+    homeScore:
+      event.intHomeScore !== null && event.intHomeScore !== ""
+        ? parseInt(event.intHomeScore)
+        : null,
+    awayScore:
+      event.intAwayScore !== null && event.intAwayScore !== ""
+        ? parseInt(event.intAwayScore)
+        : null,
     startTime: timeStr,
     date: dateStr,
     league: leagueName,
     venue: event.strVenue || undefined,
   };
+}
+
+function abbrev(name: string): string {
+  const words = name.split(/\s+/).filter(Boolean);
+  if (words.length === 1) return name.slice(0, 3).toUpperCase();
+  return words
+    .slice(0, 3)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
 }
 
 function formatDateRu(dateStr: string): string {
@@ -87,59 +117,57 @@ function formatDateRu(dateStr: string): string {
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
 
-  const normalize = (d: Date) => {
+  const norm = (d: Date) => {
     const nd = new Date(d);
     nd.setHours(0, 0, 0, 0);
     return nd.getTime();
   };
-  const norm = normalize(date);
 
-  if (norm === normalize(today)) return "Сегодня";
-  if (norm === normalize(yesterday)) return "Вчера";
-  if (norm === normalize(tomorrow)) return "Завтра";
+  const normDate = norm(date);
+  if (normDate === norm(today)) return "Сегодня";
+  if (normDate === norm(yesterday)) return "Вчера";
+  if (normDate === norm(tomorrow)) return "Завтра";
 
-  const months = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+  const months = [
+    "янв", "фев", "мар", "апр", "май", "июн",
+    "июл", "авг", "сен", "окт", "ноя", "дек",
+  ];
   return `${date.getDate()} ${months[date.getMonth()]}`;
 }
 
-async function fetchSeasonEvents(leagueId: string, season: string): Promise<SportsDBEvent[]> {
-  try {
-    const url = `${BASE_URL}/eventsseason.php?id=${leagueId}&s=${encodeURIComponent(season)}`;
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.events || [];
-  } catch {
-    return [];
-  }
-}
-
-export async function fetchLeagueMatches(
-  leagueId: string,
-  sport: SportType,
-  leagueName: string,
-  seasons: string[]
-): Promise<Match[]> {
-  const allEvents: SportsDBEvent[] = [];
-  for (const season of seasons) {
-    const events = await fetchSeasonEvents(leagueId, season);
-    allEvents.push(...events);
-  }
-  // Deduplicate by idEvent
-  const seen = new Set<string>();
-  const unique = allEvents.filter((e) => {
-    if (seen.has(e.idEvent)) return false;
-    seen.add(e.idEvent);
-    return true;
-  });
-  // Sort by date desc (most recent first)
-  unique.sort((a, b) => new Date(b.dateEvent).getTime() - new Date(a.dateEvent).getTime());
-  return unique.map((e) => mapEventToMatch(e, sport, leagueName));
-}
-
 export async function fetchAllMatches(): Promise<Match[]> {
-  const results = await Promise.all(
-    LEAGUES.map((l) => fetchLeagueMatches(l.id, l.sport, l.name, l.seasons))
-  );
-  return results.flat();
+  const base = getApiBase();
+  const url = `${base}/api/sports/all-matches`;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  const data: { events: SportsDBEvent[] } = await res.json();
+
+  const events = data.events || [];
+
+  // Sort: most recent first for finished, soonest first for upcoming
+  const finished = events
+    .filter((e) => {
+      const m = mapEventToMatch(e);
+      return m.status === "finished";
+    })
+    .sort(
+      (a, b) => new Date(b.dateEvent).getTime() - new Date(a.dateEvent).getTime()
+    );
+
+  const live = events.filter((e) => {
+    const m = mapEventToMatch(e);
+    return m.status === "live";
+  });
+
+  const upcoming = events
+    .filter((e) => {
+      const m = mapEventToMatch(e);
+      return m.status === "upcoming";
+    })
+    .sort(
+      (a, b) => new Date(a.dateEvent).getTime() - new Date(b.dateEvent).getTime()
+    );
+
+  return [...live, ...finished, ...upcoming].map(mapEventToMatch);
 }
