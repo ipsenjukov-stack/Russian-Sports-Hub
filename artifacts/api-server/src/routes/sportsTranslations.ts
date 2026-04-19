@@ -29,6 +29,7 @@ export const TEAM_TRANSLATIONS: Record<string, string> = {
   "Akhmat Grozny": "Ахмат Грозный",
   "Akron Tolyatti": "Акрон Тольятти",
   "Baltika Kaliningrad": "Балтика Калининград",
+  "FC Baltika Kaliningrad": "Балтика Калининград",
   "Dinamo Makhachkala": "Динамо Махачкала",
   "Dynamo Makhachkala": "Динамо Махачкала",
   "FC Krasnodar": "Краснодар",
@@ -38,6 +39,7 @@ export const TEAM_TRANSLATIONS: Record<string, string> = {
   "Gazovik Orenburg": "Газовик Оренбург",
   "Khimki FK": "Химки",
   "Krasnodar": "Краснодар",
+  "Krylia Sovetov": "Крылья Советов",
   "Krylia Sovetov Samara": "Крылья Советов Самара",
   "Krylya Sovetov Samara": "Крылья Советов Самара",
   "Lok. Moscow": "Локомотив Москва",
@@ -47,6 +49,8 @@ export const TEAM_TRANSLATIONS: Record<string, string> = {
   "Rostov": "Ростов",
   "Rubin Kazan": "Рубин Казань",
   "Sochi": "Сочи",
+  "Ufa": "Уфа",
+  "Ural Yekaterinburg": "Урал Екатеринбург",
   "Zenit Saint Petersburg": "Зенит Санкт-Петербург",
   "Zenit St Petersburg": "Зенит Санкт-Петербург",
 
@@ -143,6 +147,16 @@ export const VENUE_TRANSLATIONS: Record<string, string> = {
   "VEB Arena": "ВЭБ Арена",
   "VTB Arena": "ВТБ Арена",
   "Yubileyni Arena": "Арена Юбилейный",
+  "Saint Petersburg Stadium": "Газпром Арена",
+  "Nizhny Novgorod Stadium": "Стадион Нижний Новгород",
+  "Akhmat Arena": "Ахмат-Арена",
+  "Lukoil Arena": "Лукойл Арена",
+  "Otkrytiye Arena": "Открытие Арена",
+  "Anzhi Arena": "Анжи Арена Каспийск",
+  "Krasnodar Stadium": "Стадион Краснодар",
+  "Central Stadium Ekaterinburg": "Центральный стадион Екатеринбург",
+  "Cosmos Arena": "Самара Арена",
+  "Trud Stadium": "Стадион Труд",
 };
 
 export function translateTeam(name: string): string {
