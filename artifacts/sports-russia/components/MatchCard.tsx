@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { Match, SportType } from "@/types/sports";
+import { splitTeamName } from "@/utils/teamUtils";
 
 const SPORT_COLORS: Record<SportType, string> = {
   football: "#2ECC71",
@@ -28,6 +29,9 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
   const isLive = match.status === "live";
   const isFinished = match.status === "finished";
   const isUpcoming = match.status === "upcoming";
+
+  const home = splitTeamName(match.homeTeam.name);
+  const away = splitTeamName(match.awayTeam.name);
 
   return (
     <TouchableOpacity
@@ -58,8 +62,13 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
         <View style={styles.matchRow}>
           <View style={styles.teamBlock}>
             <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
-              {match.homeTeam.name}
+              {home.name}
             </Text>
+            {home.city ? (
+              <Text style={[styles.teamCity, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {home.city}
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.scoreBlock}>
@@ -82,8 +91,13 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
 
           <View style={[styles.teamBlock, styles.awayBlock]}>
             <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
-              {match.awayTeam.name}
+              {away.name}
             </Text>
+            {away.city ? (
+              <Text style={[styles.teamCity, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {away.city}
+              </Text>
+            ) : null}
           </View>
         </View>
 
@@ -166,6 +180,11 @@ const styles = StyleSheet.create({
   teamName: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
+  },
+  teamCity: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
   },
   scoreBlock: {
     width: 80,
