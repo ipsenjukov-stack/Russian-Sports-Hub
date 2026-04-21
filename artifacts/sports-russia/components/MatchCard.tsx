@@ -256,8 +256,8 @@ const styles = StyleSheet.create({
   liveText: { color: "#fff", fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
   statusText: { fontSize: 11, fontFamily: "Inter_400Regular" },
   matchRow: { flexDirection: "row", alignItems: "center" },
-  teamBlock: { flex: 1 },
-  awayBlock: { alignItems: "flex-end" },
+  teamBlock: { flex: 1, alignItems: "flex-end" },
+  awayBlock: { alignItems: "flex-start" },
   teamNameRow: {
     flexDirection: "row",
     alignItems: "center",
