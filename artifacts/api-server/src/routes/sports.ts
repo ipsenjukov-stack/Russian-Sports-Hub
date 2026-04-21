@@ -343,6 +343,56 @@ router.get("/sports/season-events", async (req, res) => {
   }
 });
 
+// GET /api/sports/standings?sport=football
+type StandingEntry = {
+  rank: number; team: string; badge: string;
+  gp: number; w: number; d: number; l: number;
+  gf: number; ga: number; gd: number; pts: number;
+  form?: string; description?: string;
+};
+
+router.get("/sports/standings", async (req, res) => {
+  const { sport = "football" } = req.query as { sport?: string };
+  try {
+    if (sport === "football") {
+      const url = "https://site.api.espn.com/apis/v2/sports/soccer/rus.1/standings";
+      const data = (await fetchWithCache(url, { "User-Agent": ESPN_UA })) as {
+        children?: { name?: string; standings?: { entries?: Array<{
+          team: { displayName: string; logos?: Array<{ href: string }> };
+          stats: Array<{ name: string; value: number }>;
+        }> } }[];
+      };
+      const child = data?.children?.[0];
+      const entries: StandingEntry[] = (child?.standings?.entries ?? []).map((e) => {
+        const s: Record<string, number> = {};
+        e.stats.forEach((st) => { s[st.name] = st.value; });
+        return {
+          rank: s.rank ?? 0,
+          team: translateTeam(e.team.displayName),
+          badge: e.team.logos?.[0]?.href ?? "",
+          gp: s.gamesPlayed ?? 0,
+          w: s.wins ?? 0,
+          d: s.ties ?? 0,
+          l: s.losses ?? 0,
+          gf: s.pointsFor ?? 0,
+          ga: s.pointsAgainst ?? 0,
+          gd: s.pointDifferential ?? 0,
+          pts: s.points ?? 0,
+        };
+      });
+      entries.sort((a, b) => a.rank - b.rank);
+      const rawSeason = child?.name ?? "";
+      const seasonMatch = rawSeason.match(/(\d{4}-\d{2,4})/);
+      const season = seasonMatch ? seasonMatch[1] : rawSeason;
+      return res.json({ league: "Российская Премьер-лига", season, entries });
+    }
+    return res.json({ league: null, season: null, entries: [] });
+  } catch (err) {
+    req.log.error({ err }, "Failed to fetch standings");
+    res.status(502).json({ error: "Failed to fetch standings" });
+  }
+});
+
 // GET /api/sports/proxy-image?url=...
 const WIKI_UA = "SportRussiaApp/1.0 (https://github.com/sports-russia; educational)";
 

@@ -45,8 +45,8 @@ export default function HomeScreen() {
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <View style={styles.headerContent}>
           <View>
-            <Text style={[styles.headerTitle, { color: colors.foreground }]}>Спорт России</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.mutedForeground }]}>Результаты и матчи</Text>
+            <Text style={[styles.headerTitle, { color: colors.foreground }]}>Матчи</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.mutedForeground }]}>Лайв и результаты</Text>
           </View>
           <View style={[styles.flagBadge, { backgroundColor: colors.primary }]}>
             <Text style={styles.flagText}>🇷🇺</Text>
