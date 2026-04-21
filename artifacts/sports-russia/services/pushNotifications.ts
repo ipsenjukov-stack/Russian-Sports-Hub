@@ -97,12 +97,20 @@ const KHL_TEST_PAIRS = [
   { home: "Динамо Москва", away: "Барыс", homeScore: 4, awayScore: 2 },
 ];
 
+const BOLD_DIGITS: Record<string, string> = {
+  "0": "𝟬", "1": "𝟭", "2": "𝟮", "3": "𝟯", "4": "𝟰",
+  "5": "𝟱", "6": "𝟲", "7": "𝟳", "8": "𝟴", "9": "𝟵",
+};
+function boldNum(n: number): string {
+  return String(n).split("").map((c) => BOLD_DIGITS[c] ?? c).join("");
+}
+
 export async function sendLocalTestNotification(): Promise<void> {
   const match = KHL_TEST_PAIRS[Math.floor(Math.random() * KHL_TEST_PAIRS.length)];
   const isHome = Math.random() < 0.5;
   const team = isHome ? match.home : match.away;
-  const homeStr = isHome ? `🟢${match.homeScore}` : `${match.homeScore}`;
-  const awayStr = !isHome ? `🟢${match.awayScore}` : `${match.awayScore}`;
+  const homeStr = isHome ? boldNum(match.homeScore) : `${match.homeScore}`;
+  const awayStr = !isHome ? boldNum(match.awayScore) : `${match.awayScore}`;
   await Notifications.scheduleNotificationAsync({
     content: {
       title: `🏒 Гол! ${team}`,

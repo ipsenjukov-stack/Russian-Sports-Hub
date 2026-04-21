@@ -44,6 +44,15 @@ function scoreLabel(home: number | null, away: number | null) {
   return `${home ?? 0}:${away ?? 0}`;
 }
 
+const BOLD_DIGITS: Record<string, string> = {
+  "0": "𝟬", "1": "𝟭", "2": "𝟮", "3": "𝟯", "4": "𝟰",
+  "5": "𝟱", "6": "𝟲", "7": "𝟳", "8": "𝟴", "9": "𝟵",
+};
+
+function boldNum(n: number): string {
+  return String(n).split("").map((c) => BOLD_DIGITS[c] ?? c).join("");
+}
+
 function goalScoreLabel(
   homeScore: number,
   awayScore: number,
@@ -51,8 +60,8 @@ function goalScoreLabel(
   prevAway: number
 ): string {
   const homeScored = homeScore > prevHome;
-  const homeStr = homeScored ? `🟢${homeScore}` : `${homeScore}`;
-  const awayStr = !homeScored ? `🟢${awayScore}` : `${awayScore}`;
+  const homeStr = homeScored ? boldNum(homeScore) : `${homeScore}`;
+  const awayStr = !homeScored ? boldNum(awayScore) : `${awayScore}`;
   return `${homeStr}:${awayStr}`;
 }
 
