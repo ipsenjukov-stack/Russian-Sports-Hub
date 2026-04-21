@@ -59,16 +59,33 @@ function TeamLogo({ uri, name, size = 32 }: { uri?: string; name: string; size?:
   );
 }
 
-function LeagueLogo({ uri, size = 18 }: { uri?: string; size?: number }) {
+function LeagueLogo({ uri, size = 28, bgColor = "#EBEBEB" }: { uri?: string; size?: number; bgColor?: string }) {
   const [error, setError] = React.useState(false);
-  if (!uri || error) return null;
+
   return (
-    <Image
-      source={{ uri }}
-      style={{ width: size, height: size, borderRadius: 3 }}
-      resizeMode="contain"
-      onError={() => setError(true)}
-    />
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 6,
+        backgroundColor: bgColor,
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+        opacity: 0.92,
+      }}
+    >
+      {uri && !error ? (
+        <Image
+          source={{ uri }}
+          style={{ width: size, height: size }}
+          resizeMode="contain"
+          onError={() => setError(true)}
+        />
+      ) : (
+        <Text style={{ fontSize: size * 0.6, lineHeight: size + 2 }}>🏆</Text>
+      )}
+    </View>
   );
 }
 
@@ -93,7 +110,7 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.leagueRow}>
-            <LeagueLogo uri={match.leagueLogo} />
+            <LeagueLogo uri={match.leagueLogo} bgColor={sportColor} />
             <Text style={[styles.league, { color: colors.mutedForeground }]} numberOfLines={1}>
               {match.league}
             </Text>

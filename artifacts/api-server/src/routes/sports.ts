@@ -23,6 +23,12 @@ async function fetchWithCache(url: string, headers?: Record<string, string>): Pr
   return data;
 }
 
+// ── Image proxy helper ────────────────────────────────────────────────────────
+function proxyImg(url: string | null | undefined): string {
+  if (!url) return "";
+  return `/api/sports/proxy-image?url=${encodeURIComponent(url)}`;
+}
+
 // ── League badge fetching ─────────────────────────────────────────────────────
 async function fetchLeagueBadge(leagueId: string): Promise<string> {
   try {
@@ -221,6 +227,24 @@ router.get("/sports/season-events", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to fetch season events");
     res.status(502).json({ error: "Failed to fetch data" });
+  }
+});
+
+// GET /api/sports/proxy-image?url=...
+router.get("/sports/proxy-image", async (req, res) => {
+  const { url } = req.query as { url?: string };
+  if (!url) { res.status(400).end(); return; }
+  try {
+    const imgRes = await fetch(url, { headers: { "User-Agent": ESPN_UA } });
+    if (!imgRes.ok) { res.status(502).end(); return; }
+    const contentType = imgRes.headers.get("content-type") ?? "image/png";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    const buf = await imgRes.arrayBuffer();
+    res.end(Buffer.from(buf));
+  } catch {
+    res.status(502).end();
   }
 });
 

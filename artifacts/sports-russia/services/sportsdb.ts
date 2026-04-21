@@ -87,6 +87,15 @@ export function mapEventToMatch(event: SportsDBEvent): Match {
       ? parseInt(event.intAwayScore)
       : null;
 
+  const base = getApiBase();
+
+  function toProxied(url: string | null | undefined): string {
+    if (!url) return "";
+    // ESPN logos (a.espncdn.com) load fine directly; TheSportsDB needs proxying
+    if (url.startsWith("https://a.espncdn.com")) return url;
+    return `${base}/api/sports/proxy-image?url=${encodeURIComponent(url)}`;
+  }
+
   return {
     id: event.idEvent,
     sport,
@@ -95,20 +104,20 @@ export function mapEventToMatch(event: SportsDBEvent): Match {
       id: event.strHomeTeam.toLowerCase().replace(/\s+/g, "-"),
       name: event.strHomeTeam,
       shortName: abbrev(event.strHomeTeam),
-      logo: event.strHomeTeamBadge ?? "",
+      logo: toProxied(event.strHomeTeamBadge),
     },
     awayTeam: {
       id: event.strAwayTeam.toLowerCase().replace(/\s+/g, "-"),
       name: event.strAwayTeam,
       shortName: abbrev(event.strAwayTeam),
-      logo: event.strAwayTeamBadge ?? "",
+      logo: toProxied(event.strAwayTeamBadge),
     },
     homeScore,
     awayScore,
     startTime: timeStr,
     date: dateStr,
     league: event._leagueName,
-    leagueLogo: event._leagueBadge ?? undefined,
+    leagueLogo: toProxied(event._leagueBadge),
     venue: event.strVenue || undefined,
     period: event._periodLabel,
   };
