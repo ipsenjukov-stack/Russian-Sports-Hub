@@ -59,7 +59,7 @@ function TeamLogo({ uri, name, size = 32 }: { uri?: string; name: string; size?:
   );
 }
 
-function LeagueLogo({ uri, size = 28, bgColor = "#EBEBEB" }: { uri?: string; size?: number; bgColor?: string }) {
+function LeagueLogo({ uri, size = 28 }: { uri?: string; size?: number }) {
   const [error, setError] = React.useState(false);
 
   return (
@@ -67,12 +67,9 @@ function LeagueLogo({ uri, size = 28, bgColor = "#EBEBEB" }: { uri?: string; siz
       style={{
         width: size,
         height: size,
-        borderRadius: 6,
-        backgroundColor: bgColor,
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
-        opacity: 0.92,
       }}
     >
       {uri && !error ? (
@@ -110,7 +107,7 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.leagueRow}>
-            <LeagueLogo uri={match.leagueLogo} bgColor={sportColor} />
+            <LeagueLogo uri={match.leagueLogo} />
             <Text style={[styles.league, { color: colors.mutedForeground }]} numberOfLines={1}>
               {match.league}
             </Text>
