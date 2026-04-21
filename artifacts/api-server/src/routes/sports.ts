@@ -256,9 +256,15 @@ function localizeEvent(e: RawEvent): RawEvent {
 }
 
 const SPORTSDB_LEAGUES = [
-  { id: "4920", sport: "hockey",     name: "КХЛ",                seasons: ["2025-2026", "2024-2025"] },
-  { id: "4476", sport: "basketball", name: "Единая лига ВТБ",    seasons: ["2024-2025", "2023-2024"] },
-  { id: "4545", sport: "volleyball", name: "Суперлига Волейбол", seasons: ["2024-2025", "2023-2024"] },
+  { id: "4920", sport: "hockey",     name: "КХЛ",             seasons: ["2025-2026", "2024-2025"], badgeOverride: "" },
+  { id: "4476", sport: "basketball", name: "Единая лига ВТБ", seasons: ["2024-2025", "2023-2024"], badgeOverride: "" },
+  {
+    id: "4545",
+    sport: "volleyball",
+    name: "Pari Суперлига",
+    seasons: ["2024-2025", "2023-2024"],
+    badgeOverride: "https://upload.wikimedia.org/wikipedia/ru/e/ea/%D0%A1%D1%83%D0%BF%D0%B5%D1%80%D0%BB%D0%B8%D0%B3%D0%B0.jpeg",
+  },
 ];
 
 // TheSportsDB league ID for Russian Premier League (for badge only) — ID 4355
@@ -276,7 +282,7 @@ async function fetchSportsDBEvents(): Promise<unknown[]> {
               const data = (await fetchWithCache(url)) as { events?: RawEvent[] };
               return data?.events ?? [];
             })(),
-            fetchLeagueBadge(league.id),
+            league.badgeOverride ? Promise.resolve(league.badgeOverride) : fetchLeagueBadge(league.id),
           ]);
           const mapped = events.map((e) => ({
             ...localizeEvent(e),
