@@ -21,6 +21,7 @@ export interface Match {
   period?: string;
   startTime: string;
   date: string;
+  sortKey: string;
   league: string;
   leagueLogo?: string;
   venue?: string;

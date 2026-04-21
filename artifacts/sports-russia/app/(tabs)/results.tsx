@@ -29,9 +29,9 @@ export default function ResultsScreen() {
   const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
 
   const sportType = sport === "all" ? undefined : sport;
-  const finished = (allMatches || []).filter(
-    (m) => m.status === "finished" && (!sportType || m.sport === sportType)
-  );
+  const finished = (allMatches || [])
+    .filter((m) => m.status === "finished" && (!sportType || m.sport === sportType))
+    .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;

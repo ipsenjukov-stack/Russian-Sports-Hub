@@ -32,7 +32,9 @@ export default function HomeScreen() {
 
   const matches = (allMatches || []).filter((m) => m.sport === filter);
   const liveMatches = matches.filter((m) => m.status === "live");
-  const finishedMatches = matches.filter((m) => m.status === "finished");
+  const finishedMatches = matches
+    .filter((m) => m.status === "finished")
+    .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
   const upcomingMatches = matches.filter((m) => m.status === "upcoming");
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
