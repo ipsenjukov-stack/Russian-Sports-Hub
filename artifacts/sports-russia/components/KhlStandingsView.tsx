@@ -182,62 +182,63 @@ export function KhlStandingsView({ conferences, playoffs, bottomPadding }: KhlSt
         })}
       </View>
 
-      {/* Content */}
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: bottomPadding }}
-        showsVerticalScrollIndicator={false}
-      >
-        {activeTab === "Плей-офф" ? (
-          <KhlBracket rounds={playoffs} bottomPadding={bottomPadding} />
-        ) : (
-          <>
-            {!hasStandings ? (
-              <View style={khlStyles.emptyBracket}>
-                <Text style={{ fontSize: 40, marginBottom: 12 }}>🏒</Text>
-                <Text style={[khlStyles.emptyTitle, { color: colors.foreground }]}>
-                  Таблица загружается
-                </Text>
-                <Text style={[khlStyles.emptyText, { color: colors.mutedForeground }]}>
-                  Данные Sofascore временно недоступны
-                </Text>
-              </View>
-            ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={{ paddingHorizontal: 4, paddingBottom: 8 }}>
-                  {/* Conference header */}
-                  <View style={[khlStyles.confHeader, { borderBottomColor: colors.border }]}>
-                    <Text style={[khlStyles.confName, { color: colors.foreground }]}>
-                      {activeTab === "Запад"
-                        ? westConf?.name ?? "Запад"
-                        : eastConf?.name ?? "Восток"}
-                    </Text>
-                    <Text style={[khlStyles.confSubtitle, { color: colors.mutedForeground }]}>
-                      Регулярный сезон КХЛ
-                    </Text>
-                  </View>
-                  <ConferenceTable
-                    conf={
-                      activeTab === "Запад"
-                        ? (westConf ?? { name: "Запад", rows: [] })
-                        : (eastConf ?? { name: "Восток", rows: [] })
-                    }
-                  />
-                  {/* Legend */}
-                  <View style={[khlStyles.legend, { borderTopColor: colors.border }]}>
-                    <Text style={[khlStyles.legendText, { color: colors.mutedForeground }]}>
-                      И — матчи · В — победы · П — поражения · ЗГ — забито · ПГ — пропущено · О — очки
-                    </Text>
-                    <Text style={[khlStyles.legendText, { color: colors.mutedForeground, marginTop: 3 }]}>
-                      Синяя черта слева — зона плей-офф (топ-8 конференции)
-                    </Text>
-                  </View>
+      {/* Playoff bracket — rendered outside the vertical ScrollView to avoid nested-scroll width issues */}
+      {activeTab === "Плей-офф" && (
+        <KhlBracket rounds={playoffs} bottomPadding={bottomPadding} />
+      )}
+
+      {/* Standings (Запад / Восток) */}
+      {activeTab !== "Плей-офф" && (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: bottomPadding }}
+          showsVerticalScrollIndicator={false}
+        >
+          {!hasStandings ? (
+            <View style={khlStyles.emptyBracket}>
+              <Text style={{ fontSize: 40, marginBottom: 12 }}>🏒</Text>
+              <Text style={[khlStyles.emptyTitle, { color: colors.foreground }]}>
+                Таблица загружается
+              </Text>
+              <Text style={[khlStyles.emptyText, { color: colors.mutedForeground }]}>
+                Данные Sofascore временно недоступны
+              </Text>
+            </View>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ paddingHorizontal: 4, paddingBottom: 8 }}>
+                {/* Conference header */}
+                <View style={[khlStyles.confHeader, { borderBottomColor: colors.border }]}>
+                  <Text style={[khlStyles.confName, { color: colors.foreground }]}>
+                    {activeTab === "Запад"
+                      ? westConf?.name ?? "Запад"
+                      : eastConf?.name ?? "Восток"}
+                  </Text>
+                  <Text style={[khlStyles.confSubtitle, { color: colors.mutedForeground }]}>
+                    Регулярный сезон КХЛ
+                  </Text>
                 </View>
-              </ScrollView>
-            )}
-          </>
-        )}
-      </ScrollView>
+                <ConferenceTable
+                  conf={
+                    activeTab === "Запад"
+                      ? (westConf ?? { name: "Запад", rows: [] })
+                      : (eastConf ?? { name: "Восток", rows: [] })
+                  }
+                />
+                {/* Legend */}
+                <View style={[khlStyles.legend, { borderTopColor: colors.border }]}>
+                  <Text style={[khlStyles.legendText, { color: colors.mutedForeground }]}>
+                    И — матчи · В — победы · П — поражения · ЗГ — забито · ПГ — пропущено · О — очки
+                  </Text>
+                  <Text style={[khlStyles.legendText, { color: colors.mutedForeground, marginTop: 3 }]}>
+                    Синяя черта слева — зона плей-офф (топ-8 конференции)
+                  </Text>
+                </View>
+              </View>
+            </ScrollView>
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }

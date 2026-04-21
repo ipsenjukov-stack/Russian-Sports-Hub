@@ -217,6 +217,7 @@ export function KhlBracket({ rounds, bottomPadding = 0 }: KhlBracketProps) {
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={{ flex: 1 }}
       contentContainerStyle={{ width: contentW, paddingBottom: bottomPadding + 24 }}
     >
       {/* Round labels row */}
