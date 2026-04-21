@@ -15,6 +15,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { setupAndroidChannel } from "@/services/pushNotifications";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -41,6 +42,10 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
+
+  useEffect(() => {
+    setupAndroidChannel().catch(() => {});
+  }, []);
 
   if (!fontsLoaded && !fontError) return null;
 

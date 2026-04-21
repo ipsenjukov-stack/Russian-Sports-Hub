@@ -41,6 +41,16 @@ TheSportsDB serves mostly-transparent PNG badges for КХЛ (97-99%), Едина
 - **Wikipedia/Wikimedia**: direct URL (CDN, no proxy needed) — bypass logic in `sportsdb.ts`
 - **TheSportsDB**: proxied via `/api/sports/proxy-image` endpoint
 
+### Push Notifications System
+- **Backend scheduler** (`api-server/src/lib/notificationScheduler.ts`): polls `/api/sports/all-matches` every 60s, detects score/period changes, sends via Expo Push API
+- **Token store** (`api-server/src/lib/notificationStore.ts`): in-memory Map of push tokens → favorite team names
+- **Registration API**: `POST /api/notifications/register` (token + favorites), `POST /api/notifications/unregister`
+- **Events triggered**: goal (football/hockey), period change (volleyball/basketball), kickoff, 3h-before reminder
+- **Frontend service** (`services/pushNotifications.ts`): permission request, Expo push token, local scheduled notifications
+- **Local reminders**: scheduled via `expo-notifications` for 3h-before and kickoff (works offline)
+- **Re-registration**: FavoritesContext auto re-syncs token with backend when favorites change
+- **Expo Go limitation**: Remote push notifications removed from Expo Go SDK 53+; local notifications work; full remote push requires dev build
+
 ### Data Sources
 - РПЛ football: ESPN API
 - КХЛ, Единая лига ВТБ, Суперлига волейбол: TheSportsDB API

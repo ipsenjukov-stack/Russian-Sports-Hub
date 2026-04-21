@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Modal,
   View,
@@ -11,15 +11,24 @@ import {
   Animated,
   Platform,
   KeyboardAvoidingView,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useTheme, ThemePreference } from "@/context/ThemeContext";
+import { useFavorites } from "@/context/FavoritesContext";
+import {
+  requestPermissions,
+  getExpoPushToken,
+  registerWithBackend,
+  unregisterFromBackend,
+} from "@/services/pushNotifications";
 
 const FAN_KEY = "@sports_russia_fan";
 const NOTIF_KEY = "@sports_russia_notif";
+const TOKEN_KEY = "@sports_russia_push_token";
 
 interface FanProfile {
   name: string;
@@ -36,12 +45,15 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { preference, setPreference } = useTheme();
+  const { favorites } = useFavorites();
 
   const slideAnim = useRef(new Animated.Value(600)).current;
 
   const [fan, setFan] = useState<FanProfile>({ name: "", email: "", team: "" });
   const [fanSaved, setFanSaved] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifStatus, setNotifStatus] = useState<"idle" | "denied" | "active">("idle");
 
   useEffect(() => {
     AsyncStorage.getItem(FAN_KEY).then((raw) => {
@@ -49,6 +61,7 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
     });
     AsyncStorage.getItem(NOTIF_KEY).then((val) => {
       setNotifEnabled(val === "true");
+      if (val === "true") setNotifStatus("active");
     });
   }, []);
 
@@ -66,10 +79,43 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
     setTimeout(() => setFanSaved(false), 2000);
   }
 
-  function toggleNotif(val: boolean) {
-    setNotifEnabled(val);
-    AsyncStorage.setItem(NOTIF_KEY, String(val));
-  }
+  const toggleNotif = useCallback(async (val: boolean) => {
+    if (Platform.OS === "web") {
+      Alert.alert("Уведомления", "Пуш-уведомления доступны только в мобильном приложении.");
+      return;
+    }
+    if (val) {
+      setNotifLoading(true);
+      try {
+        const granted = await requestPermissions();
+        if (!granted) {
+          setNotifStatus("denied");
+          setNotifLoading(false);
+          Alert.alert(
+            "Нет разрешения",
+            "Разрешите уведомления в настройках телефона, чтобы получать уведомления о матчах."
+          );
+          return;
+        }
+        const token = await getExpoPushToken();
+        if (token) {
+          await AsyncStorage.setItem(TOKEN_KEY, token);
+          await registerWithBackend(token, favorites);
+        }
+        setNotifEnabled(true);
+        setNotifStatus("active");
+        AsyncStorage.setItem(NOTIF_KEY, "true");
+      } finally {
+        setNotifLoading(false);
+      }
+    } else {
+      const token = await AsyncStorage.getItem(TOKEN_KEY);
+      if (token) await unregisterFromBackend(token);
+      setNotifEnabled(false);
+      setNotifStatus("idle");
+      AsyncStorage.setItem(NOTIF_KEY, "false");
+    }
+  }, [favorites]);
 
   const THEME_OPTIONS: { key: ThemePreference; label: string; icon: string }[] = [
     { key: "system", label: "Авто", icon: "phone-portrait-outline" },
@@ -197,22 +243,46 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                 <View style={styles.notifTextCol}>
                   <Text style={[styles.notifTitle, { color: colors.foreground }]}>Пуш-уведомления</Text>
                   <Text style={[styles.notifSub, { color: colors.mutedForeground }]}>
-                    Старт матчей избранных команд
+                    {notifStatus === "active"
+                      ? `Активно · ${favorites.length > 0 ? `${favorites.length} команд` : "добавьте избранные"}`
+                      : notifStatus === "denied"
+                      ? "Разрешение отклонено"
+                      : "Голы, партии, старт матчей"}
                   </Text>
                 </View>
                 <Switch
                   value={notifEnabled}
                   onValueChange={toggleNotif}
+                  disabled={notifLoading}
                   trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor={notifEnabled ? "#fff" : "#fff"}
+                  thumbColor="#fff"
                   ios_backgroundColor={colors.border}
                 />
               </View>
-              {notifEnabled && (
+
+              {notifStatus === "active" && (
                 <View style={[styles.notifNote, { backgroundColor: colors.muted, borderRadius: 8 }]}>
-                  <Ionicons name="information-circle-outline" size={14} color={colors.mutedForeground} />
+                  <Ionicons name="checkmark-circle-outline" size={14} color={colors.primary} />
                   <Text style={[styles.notifNoteText, { color: colors.mutedForeground }]}>
-                    Уведомления будут доступны в следующем обновлении приложения
+                    Гол (футбол, хоккей), смена партии (волейбол), четверти (баскетбол), за 3 ч до матча и при старте
+                  </Text>
+                </View>
+              )}
+
+              {notifStatus === "denied" && (
+                <View style={[styles.notifNote, { backgroundColor: colors.muted, borderRadius: 8 }]}>
+                  <Ionicons name="alert-circle-outline" size={14} color="#F59E0B" />
+                  <Text style={[styles.notifNoteText, { color: colors.mutedForeground }]}>
+                    Разрешите уведомления в настройках телефона и попробуйте снова
+                  </Text>
+                </View>
+              )}
+
+              {Platform.OS === "web" && (
+                <View style={[styles.notifNote, { backgroundColor: colors.muted, borderRadius: 8 }]}>
+                  <Ionicons name="phone-portrait-outline" size={14} color={colors.mutedForeground} />
+                  <Text style={[styles.notifNoteText, { color: colors.mutedForeground }]}>
+                    Пуш-уведомления доступны только в мобильном приложении
                   </Text>
                 </View>
               )}

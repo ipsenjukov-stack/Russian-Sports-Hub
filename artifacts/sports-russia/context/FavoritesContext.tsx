@@ -1,6 +1,10 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SportType } from "@/types/sports";
+import { registerWithBackend } from "@/services/pushNotifications";
+
+const NOTIF_KEY = "@sports_russia_notif";
+const TOKEN_KEY = "@sports_russia_push_token";
 
 const STORAGE_KEY = "@sports_russia_favorites_v2";
 
@@ -27,6 +31,7 @@ const FavoritesContext = createContext<FavoritesContextValue>({
 
 export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const [favorites, setFavorites] = useState<FavoriteTeam[]>([]);
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
@@ -38,6 +43,17 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (isInitialMount.current) { isInitialMount.current = false; return; }
+    (async () => {
+      const notifEnabled = await AsyncStorage.getItem(NOTIF_KEY);
+      if (notifEnabled !== "true") return;
+      const token = await AsyncStorage.getItem(TOKEN_KEY);
+      if (!token) return;
+      await registerWithBackend(token, favorites).catch(() => {});
+    })();
+  }, [favorites]);
 
   const toggleFavorite = useCallback((name: string, sport: SportType) => {
     setFavorites((prev) => {

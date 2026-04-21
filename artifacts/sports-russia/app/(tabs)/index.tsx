@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { useAllMatches } from "@/hooks/useSportsData";
 import { SportFilterBar } from "@/components/SportFilterBar";
@@ -22,6 +23,8 @@ import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { SettingsModal } from "@/components/SettingsModal";
 import { SportType } from "@/types/sports";
+import { useFavorites } from "@/context/FavoritesContext";
+import { scheduleMatchReminders } from "@/services/pushNotifications";
 
 type FilterOption = SportType;
 
@@ -31,8 +34,17 @@ export default function HomeScreen() {
   const [filter, setFilter] = useState<FilterOption>("football");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { favorites } = useFavorites();
 
   const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
+
+  useEffect(() => {
+    if (!allMatches?.length || !favorites.length) return;
+    AsyncStorage.getItem("@sports_russia_notif").then((val) => {
+      if (val !== "true") return;
+      scheduleMatchReminders(allMatches, favorites).catch(() => {});
+    });
+  }, [allMatches, favorites]);
 
   const now = Date.now();
   const SOON_MS = 30 * 60 * 1000;
