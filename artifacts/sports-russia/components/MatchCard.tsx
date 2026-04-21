@@ -99,7 +99,9 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
   const isUpcoming = match.status === "upcoming";
 
   const minsUntil = isUpcoming ? minutesUntilStart(match.startTimestamp) : null;
+  const startedRecentlyMins = minsUntil !== null && minsUntil < 0 && minsUntil >= -120;
   const isStartingSoon = isUpcoming && minsUntil !== null && minsUntil >= 0 && minsUntil <= 30;
+  const isJustStarted = isUpcoming && startedRecentlyMins;
 
   const home = splitTeamName(match.homeTeam.name);
   const away = splitTeamName(match.awayTeam.name);
@@ -133,10 +135,16 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
               </Text>
             </View>
           )}
+          {isJustStarted && (
+            <View style={[styles.soonBadge, { backgroundColor: colors.live }]}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>идёт</Text>
+            </View>
+          )}
           {isFinished && (
             <Text style={[styles.statusText, { color: colors.mutedForeground }]}>Завершён · {match.date}</Text>
           )}
-          {isUpcoming && !isStartingSoon && (
+          {isUpcoming && !isStartingSoon && !isJustStarted && (
             <Text style={[styles.statusText, { color: colors.mutedForeground }]}>{match.startTime} · {match.date}</Text>
           )}
         </View>

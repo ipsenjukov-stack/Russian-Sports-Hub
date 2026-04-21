@@ -48,12 +48,20 @@ export default function HomeScreen() {
 
   const now = Date.now();
   const SOON_MS = 30 * 60 * 1000;
+  const STARTED_RECENTLY_MS = 2 * 60 * 60 * 1000; // 2h — ESPN lag window
 
   const matches = (allMatches || []).filter((m) => m.sport === filter);
   const liveMatches = matches.filter((m) => m.status === "live");
-  const startingSoonMatches = matches.filter(
-    (m) => m.status === "upcoming" && m.startTimestamp - now <= SOON_MS && m.startTimestamp > now
-  ).sort((a, b) => a.startTimestamp - b.startTimestamp);
+
+  // Matches starting within 30 min OR already started (ESPN not updated yet, within 2h)
+  const startingSoonMatches = matches.filter((m) => {
+    if (m.status !== "upcoming" || !m.startTimestamp) return false;
+    const delta = m.startTimestamp - now;
+    const startedRecently = delta < 0 && now - m.startTimestamp <= STARTED_RECENTLY_MS;
+    const startingCoon = delta >= 0 && delta <= SOON_MS;
+    return startingCoon || startedRecently;
+  }).sort((a, b) => a.startTimestamp - b.startTimestamp);
+
   const liveAndSoonMatches = [
     ...liveMatches,
     ...startingSoonMatches,
@@ -61,9 +69,13 @@ export default function HomeScreen() {
   const finishedMatches = matches
     .filter((m) => m.status === "finished")
     .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
-  const upcomingMatches = matches.filter(
-    (m) => m.status === "upcoming" && !(m.startTimestamp - now <= SOON_MS && m.startTimestamp > now)
-  );
+  const upcomingMatches = matches.filter((m) => {
+    if (m.status !== "upcoming" || !m.startTimestamp) return m.status === "upcoming";
+    const delta = m.startTimestamp - now;
+    const startedRecently = delta < 0 && now - m.startTimestamp <= STARTED_RECENTLY_MS;
+    const startingSoon = delta >= 0 && delta <= SOON_MS;
+    return !startingSoon && !startedRecently;
+  });
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
