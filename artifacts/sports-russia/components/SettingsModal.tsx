@@ -459,7 +459,7 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                 </View>
               )}
 
-              {notifStatus === "active" && (
+              {notifStatus === "active" && Platform.OS !== "web" && (
                 <TouchableOpacity
                   style={[styles.testBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
                   activeOpacity={0.75}
@@ -467,10 +467,14 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                     try {
                       const base = getApiBase();
                       const token = await AsyncStorage.getItem("@sports_russia_push_token");
+                      if (!token) {
+                        Alert.alert("Нет токена", "Выключите уведомления и включите заново, чтобы получить push-токен.");
+                        return;
+                      }
                       const resp = await fetch(`${base}/api/notifications/test-goal`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(token ? { token } : {}),
+                        body: JSON.stringify({ token }),
                       });
                       const data = await resp.json();
                       if (data.ok) {
