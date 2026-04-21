@@ -8,20 +8,48 @@ const THESPORTSDB_BASE = "https://www.thesportsdb.com/api/v1/json/3";
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/rus.1/scoreboard";
 const ESPN_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
+const SOFASCORE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1";
+const SOFASCORE_HEADERS: Record<string, string> = {
+  "User-Agent": SOFASCORE_UA,
+  "Accept": "application/json",
+  "Referer": "https://www.sofascore.com/",
+};
+const KHL_TOURNAMENT_IDS = new Set<number>([268]);
+const SOFASCORE_KHL_BADGE = "https://api.sofascore.app/api/v1/unique-tournament/268/image/dark";
+
 // ── Cache ────────────────────────────────────────────────────────────────────
 interface CacheEntry { data: unknown; fetchedAt: number }
 const cache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
+const CACHE_TTL_MS       = 3  * 60 * 1000; // 3 minutes (live/today data)
+const CACHE_TTL_HIST_MS  = 12 * 60 * 60 * 1000; // 12 hours (past date data)
 
-async function fetchWithCache(url: string, headers?: Record<string, string>): Promise<unknown> {
+async function fetchWithCache(
+  url: string,
+  headers?: Record<string, string>,
+  ttlMs = CACHE_TTL_MS,
+): Promise<unknown> {
   const now = Date.now();
   const cached = cache.get(url);
-  if (cached && now - cached.fetchedAt < CACHE_TTL_MS) return cached.data;
+  if (cached && now - cached.fetchedAt < ttlMs) return cached.data;
   const res = await fetch(url, { headers });
   if (!res.ok) throw new Error(`Fetch error ${res.status}: ${url}`);
   const data = await res.json();
   cache.set(url, { data, fetchedAt: now });
   return data;
+}
+
+// Run tasks with limited concurrency to avoid rate-limiting
+async function pLimit<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
+  const results: T[] = [];
+  let idx = 0;
+  async function worker() {
+    while (idx < tasks.length) {
+      const i = idx++;
+      results[i] = await tasks[i]();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
+  return results;
 }
 
 // ── Image proxy helper ────────────────────────────────────────────────────────
@@ -121,6 +149,116 @@ async function fetchEspnFootball(leagueBadge: string): Promise<unknown[]> {
   const url = `${ESPN_BASE}?dates=${start}-${end}&limit=300`;
   const data = (await fetchWithCache(url, { "User-Agent": ESPN_UA })) as { events?: EspnEvent[] };
   return await Promise.all((data.events ?? []).map((e) => mapEspnEvent(e, leagueBadge)));
+}
+
+// ── Sofascore КХЛ helpers ─────────────────────────────────────────────────────
+interface SofascoreTeam { id: number; name: string }
+interface SofascoreScore { current?: number }
+interface SofascoreStatus { code: number; description: string; type: string }
+interface SofascoreEvent {
+  id: number;
+  status: SofascoreStatus;
+  homeTeam: SofascoreTeam;
+  awayTeam: SofascoreTeam;
+  homeScore: SofascoreScore;
+  awayScore: SofascoreScore;
+  startTimestamp: number;
+  tournament: { name: string; uniqueTournament?: { id: number } };
+}
+
+function khlPeriodLabel(code: number, description: string): string | undefined {
+  if (code === 6)  return "1-й период";
+  if (code === 7 || code === 41) return "Перерыв";
+  if (code === 8)  return "2-й период";
+  if (code === 9)  return "Перерыв";
+  if (code === 10) return "3-й период";
+  if (code === 11) return "ОТ";
+  if (code === 12) return "Б/У";
+  const d = (description ?? "").toLowerCase();
+  if (d.includes("1st period")) return "1-й период";
+  if (d.includes("2nd period")) return "2-й период";
+  if (d.includes("3rd period")) return "3-й период";
+  if (d.includes("overtime") || d.includes(" ot")) return "ОТ";
+  if (d.includes("penalt") || d.includes("shootout")) return "Б/У";
+  if (d.includes("pause") || d.includes("break")) return "Перерыв";
+  return undefined;
+}
+
+function mapSofascoreHockeyEvent(e: SofascoreEvent, leagueBadge: string): Record<string, unknown> {
+  const statusType = (e.status?.type ?? "notstarted").toLowerCase();
+  const statusMap: Record<string, string> = {
+    notstarted: "upcoming",
+    inprogress: "live",
+    finished: "finished",
+    ended: "finished",
+    canceled: "finished",
+    postponed: "finished",
+  };
+  const mappedStatus = statusMap[statusType] ?? "upcoming";
+  const d = new Date(e.startTimestamp * 1000);
+  const homeName = translateTeam(e.homeTeam.name);
+  const awayName = translateTeam(e.awayTeam.name);
+
+  const isStarted = mappedStatus !== "upcoming";
+  const homeScoreStr = isStarted ? String(e.homeScore?.current ?? 0) : null;
+  const awayScoreStr = isStarted ? String(e.awayScore?.current ?? 0) : null;
+
+  const periodLabel = mappedStatus === "live"
+    ? khlPeriodLabel(e.status.code, e.status.description)
+    : undefined;
+
+  return {
+    idEvent: `sofascore_${e.id}`,
+    strHomeTeam: homeName,
+    strAwayTeam: awayName,
+    strHomeTeamBadge: `https://api.sofascore.app/api/v1/team/${e.homeTeam.id}/image`,
+    strAwayTeamBadge: `https://api.sofascore.app/api/v1/team/${e.awayTeam.id}/image`,
+    intHomeScore: homeScoreStr,
+    intAwayScore: awayScoreStr,
+    dateEvent: d.toISOString().slice(0, 10),
+    strTime: d.toISOString().slice(11, 16),
+    strStatus: mappedStatus,
+    strVenue: null,
+    _sport: "hockey",
+    _leagueName: "КХЛ",
+    _leagueBadge: leagueBadge,
+    _periodLabel: periodLabel,
+    _source: "sofascore",
+  };
+}
+
+async function fetchSofascoreHockey(): Promise<unknown[]> {
+  const events: unknown[] = [];
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const dates: { date: string; isPast: boolean }[] = [];
+
+  for (let i = -7; i <= 3; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().slice(0, 10);
+    dates.push({ date: dateStr, isPast: dateStr < todayStr });
+  }
+
+  const tasks = dates.map(({ date, isPast }) => async () => {
+    try {
+      const url = `https://api.sofascore.app/api/v1/sport/ice-hockey/scheduled-events/${date}`;
+      const ttl = isPast ? CACHE_TTL_HIST_MS : CACHE_TTL_MS;
+      const data = await fetchWithCache(url, SOFASCORE_HEADERS, ttl) as { events?: SofascoreEvent[] };
+      const khlEvents = (data.events ?? []).filter(
+        (e) =>
+          KHL_TOURNAMENT_IDS.has(e.tournament?.uniqueTournament?.id ?? -1) ||
+          e.tournament?.name === "KHL",
+      );
+      events.push(...khlEvents.map((e) => mapSofascoreHockeyEvent(e, SOFASCORE_KHL_BADGE)));
+    } catch {
+      // skip failed dates
+    }
+  });
+
+  // Max 3 concurrent Sofascore requests to avoid rate-limiting
+  await pLimit(tasks, 3);
+
+  return events;
 }
 
 // ── TheSportsDB helpers ───────────────────────────────────────────────────────
@@ -257,7 +395,6 @@ function localizeEvent(e: RawEvent): RawEvent {
 }
 
 const SPORTSDB_LEAGUES = [
-  { id: "4920", sport: "hockey",     name: "КХЛ",             seasons: ["2025-2026", "2024-2025"], badgeOverride: "" },
   { id: "4476", sport: "basketball", name: "Единая лига ВТБ", seasons: ["2024-2025", "2023-2024"], badgeOverride: "" },
   {
     id: "4545",
@@ -307,14 +444,15 @@ async function fetchSportsDBEvents(): Promise<unknown[]> {
 // GET /api/sports/all-matches
 router.get("/sports/all-matches", async (req, res) => {
   try {
-    const [rplBadge, sportsdbEvents] = await Promise.all([
+    const [rplBadge, sportsdbEvents, hockeyEvents] = await Promise.all([
       fetchLeagueBadge(RPL_SPORTSDB_ID),
       fetchSportsDBEvents(),
+      fetchSofascoreHockey().catch(() => [] as unknown[]),
     ]);
 
     const espnEvents = await fetchEspnFootball(rplBadge).catch(() => [] as unknown[]);
 
-    const allEvents = [...espnEvents, ...sportsdbEvents];
+    const allEvents = [...espnEvents, ...sportsdbEvents, ...hockeyEvents];
 
     // Deduplicate by idEvent
     const seen = new Set<string>();
@@ -407,8 +545,12 @@ router.get("/sports/proxy-image", async (req, res) => {
   const { url } = req.query as { url?: string };
   if (!url) { res.status(400).end(); return; }
   try {
-    const ua = url.includes("wikimedia.org") || url.includes("wikipedia.org") ? WIKI_UA : ESPN_UA;
-    const imgRes = await fetch(url, { headers: { "User-Agent": ua } });
+    const isSofascore = url.includes("api.sofascore.app");
+    const isWiki = url.includes("wikimedia.org") || url.includes("wikipedia.org");
+    const imgHeaders: Record<string, string> = isSofascore
+      ? { "User-Agent": SOFASCORE_UA, "Referer": "https://www.sofascore.com/", "Accept": "image/png,image/*" }
+      : { "User-Agent": isWiki ? WIKI_UA : ESPN_UA };
+    const imgRes = await fetch(url, { headers: imgHeaders });
     if (!imgRes.ok) { res.status(502).end(); return; }
     const contentType = imgRes.headers.get("content-type") ?? "image/png";
     res.setHeader("Content-Type", contentType);

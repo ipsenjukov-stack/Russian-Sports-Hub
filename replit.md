@@ -52,6 +52,27 @@ TheSportsDB serves mostly-transparent PNG badges for КХЛ (97-99%), Едина
 - **Expo Go limitation**: Remote push notifications removed from Expo Go SDK 53+; local notifications work; full remote push requires dev build
 
 ### Data Sources
-- РПЛ football: ESPN API
-- КХЛ, Единая лига ВТБ, Суперлига волейбол: TheSportsDB API
-- Translations: `sportsTranslations.ts` (team names, venues → Russian)
+- **РПЛ Футбол**: ESPN API (scoreboard + standings, live scores, 90+60 day window)
+- **КХЛ Хоккей**: Sofascore unofficial API — **NO API KEY REQUIRED**
+  - Endpoint: `https://api.sofascore.app/api/v1/sport/ice-hockey/scheduled-events/{date}`
+  - Tournament filter: `uniqueTournament.id === 268` (KHL main tournament)
+  - Headers required: `User-Agent: iPhone UA`, `Referer: https://www.sofascore.com/`
+  - Fetch -7 to +3 days, max 3 concurrent requests, 12h cache for past dates
+  - Team logos: `https://api.sofascore.app/api/v1/team/{id}/image` (via proxy with Sofascore headers)
+  - League badge: `https://api.sofascore.app/api/v1/unique-tournament/268/image/dark`
+  - Period labels: Russian (1-й период, 2-й период, 3-й период, ОТ, Б/У)
+- **Единая лига ВТБ** (basketball): TheSportsDB (ID: 4476)
+- **Pari Суперлига** (volleyball): TheSportsDB (ID: 4545)
+- **Translations**: `sportsTranslations.ts` (team names, venues → Russian)
+  - КХЛ short names added (e.g. "Traktor" → "Трактор Челябинск", "SKA" → "СКА Санкт-Петербург")
+
+### Image Loading
+- **Football (РПЛ)**: ESPN CDN direct — no proxy needed
+- **Wikipedia/Wikimedia**: direct URL (CDN, no proxy needed) — bypass logic in `sportsdb.ts`
+- **TheSportsDB**: proxied via `/api/sports/proxy-image` with ESPN UA
+- **Sofascore team/tournament images**: proxied via `/api/sports/proxy-image` with Sofascore UA + Referer header
+
+### Rate Limiting
+- `pLimit(tasks, 3)` helper limits concurrent requests to any single source
+- Past date fetches (> 1 day old) cached for 12h; today/future cached for 3 min
+- Sofascore IP blocking mitigated by sequential batching
