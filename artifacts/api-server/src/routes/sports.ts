@@ -133,12 +133,25 @@ type RawEvent = {
   [key: string]: unknown;
 };
 
+// Badge overrides for teams whose TheSportsDB season badge is broken/transparent.
+// Key = raw TheSportsDB team name, value = correct badge URL.
+const TEAM_BADGE_OVERRIDES: Record<string, string> = {
+  "Dynamo Leningrad":    "https://r2.thesportsdb.com/images/media/team/badge/ltbf4f1573327146.png",
+  "VC Dynamo Leningrad": "https://r2.thesportsdb.com/images/media/team/badge/ltbf4f1573327146.png",
+};
+
+function resolveBadge(rawName: string, badge: string | null | undefined): string | null {
+  return TEAM_BADGE_OVERRIDES[rawName] ?? badge ?? null;
+}
+
 function localizeEvent(e: RawEvent): RawEvent {
   return {
     ...e,
     strHomeTeam: translateTeam(e.strHomeTeam),
     strAwayTeam: translateTeam(e.strAwayTeam),
     strVenue: translateVenue(e.strVenue) ?? e.strVenue,
+    strHomeTeamBadge: resolveBadge(e.strHomeTeam, e.strHomeTeamBadge),
+    strAwayTeamBadge: resolveBadge(e.strAwayTeam, e.strAwayTeamBadge),
   };
 }
 
