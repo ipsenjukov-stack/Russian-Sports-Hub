@@ -143,16 +143,16 @@ export default function FavoritesScreen() {
               {liveMatches.map((m) => <MatchCard key={m.id} match={m} />)}
             </>
           )}
-          {finishedMatches.length > 0 && (
-            <>
-              <SectionHeader title="Результаты" count={finishedMatches.length} />
-              {finishedMatches.map((m) => <MatchCard key={m.id} match={m} />)}
-            </>
-          )}
           {upcomingMatches.length > 0 && (
             <>
               <SectionHeader title="Предстоящие" count={upcomingMatches.length} />
               {upcomingMatches.map((m) => <MatchCard key={m.id} match={m} />)}
+            </>
+          )}
+          {finishedMatches.length > 0 && (
+            <>
+              <SectionHeader title="Результаты" count={finishedMatches.length} />
+              {finishedMatches.map((m) => <MatchCard key={m.id} match={m} />)}
             </>
           )}
         </ScrollView>
