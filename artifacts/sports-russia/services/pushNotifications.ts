@@ -99,11 +99,14 @@ const KHL_TEST_PAIRS = [
 
 export async function sendLocalTestNotification(): Promise<void> {
   const match = KHL_TEST_PAIRS[Math.floor(Math.random() * KHL_TEST_PAIRS.length)];
-  const team = Math.random() < 0.5 ? match.home : match.away;
+  const isHome = Math.random() < 0.5;
+  const team = isHome ? match.home : match.away;
+  const homeStr = isHome ? `🟢${match.homeScore}` : `${match.homeScore}`;
+  const awayStr = !isHome ? `🟢${match.awayScore}` : `${match.awayScore}`;
   await Notifications.scheduleNotificationAsync({
     content: {
       title: `🏒 Гол! ${team}`,
-      body: `${match.home} ${match.homeScore}:${match.awayScore} ${match.away} · КХЛ`,
+      body: `${match.home} ${homeStr}:${awayStr} ${match.away} · КХЛ`,
       sound: true,
     },
     trigger: {

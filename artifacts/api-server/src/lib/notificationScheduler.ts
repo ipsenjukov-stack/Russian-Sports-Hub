@@ -44,6 +44,18 @@ function scoreLabel(home: number | null, away: number | null) {
   return `${home ?? 0}:${away ?? 0}`;
 }
 
+function goalScoreLabel(
+  homeScore: number,
+  awayScore: number,
+  prevHome: number,
+  prevAway: number
+): string {
+  const homeScored = homeScore > prevHome;
+  const homeStr = homeScored ? `🟢${homeScore}` : `${homeScore}`;
+  const awayStr = !homeScored ? `🟢${awayScore}` : `${awayScore}`;
+  return `${homeStr}:${awayStr}`;
+}
+
 async function pollOnce(apiBase: string) {
   try {
     const res = await fetch(`${apiBase}/api/sports/all-matches`, { signal: AbortSignal.timeout(20_000) });
@@ -136,9 +148,10 @@ async function pollOnce(apiBase: string) {
           if (currTotal > prevTotal && homeScore !== null && awayScore !== null) {
             const scorer = homeScore > (prev.homeScore ?? 0) ? homeTeam : awayTeam;
             const emoji = sport === "football" ? "⚽" : "🏒";
+            const score = goalScoreLabel(homeScore, awayScore, prev.homeScore ?? 0, prev.awayScore ?? 0);
             await sendPush(eventTokens,
               `${emoji} Гол! ${scorer}`,
-              `${homeTeam} ${scoreLabel(homeScore, awayScore)} ${awayTeam}`
+              `${homeTeam} ${score} ${awayTeam}`
             );
           }
         }
