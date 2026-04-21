@@ -117,6 +117,7 @@ export function mapEventToMatch(event: SportsDBEvent): Match {
     startTime: timeStr,
     date: dateStr,
     sortKey: event.dateEvent + "T" + (event.strTime || "00:00:00"),
+    startTimestamp: localDateFromUtc(event.dateEvent, event.strTime).getTime(),
     league: event._leagueName,
     leagueLogo: toProxied(event._leagueBadge),
     venue: event.strVenue || undefined,

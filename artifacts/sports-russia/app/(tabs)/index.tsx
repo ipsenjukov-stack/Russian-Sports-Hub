@@ -34,12 +34,24 @@ export default function HomeScreen() {
 
   const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
 
+  const now = Date.now();
+  const SOON_MS = 30 * 60 * 1000;
+
   const matches = (allMatches || []).filter((m) => m.sport === filter);
   const liveMatches = matches.filter((m) => m.status === "live");
+  const startingSoonMatches = matches.filter(
+    (m) => m.status === "upcoming" && m.startTimestamp - now <= SOON_MS && m.startTimestamp > now
+  ).sort((a, b) => a.startTimestamp - b.startTimestamp);
+  const liveAndSoonMatches = [
+    ...liveMatches,
+    ...startingSoonMatches,
+  ];
   const finishedMatches = matches
     .filter((m) => m.status === "finished")
     .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
-  const upcomingMatches = matches.filter((m) => m.status === "upcoming");
+  const upcomingMatches = matches.filter(
+    (m) => m.status === "upcoming" && !(m.startTimestamp - now <= SOON_MS && m.startTimestamp > now)
+  );
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
@@ -81,11 +93,11 @@ export default function HomeScreen() {
             />
           }
         >
-          {liveMatches.length > 0 && (
+          {liveAndSoonMatches.length > 0 && (
             <>
-              <LiveCounter count={liveMatches.length} />
-              <SectionHeader title="Идут сейчас" count={liveMatches.length} live />
-              {liveMatches.map((match) => (
+              <LiveCounter count={liveAndSoonMatches.length} />
+              <SectionHeader title="Идут сейчас" count={liveAndSoonMatches.length} live />
+              {liveAndSoonMatches.map((match) => (
                 <MatchCard key={match.id} match={match} />
               ))}
             </>

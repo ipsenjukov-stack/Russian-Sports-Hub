@@ -86,6 +86,10 @@ function StarButton({ teamName, sport }: { teamName: string; sport: SportType })
   );
 }
 
+function minutesUntilStart(ts: number): number {
+  return Math.ceil((ts - Date.now()) / 60000);
+}
+
 export function MatchCard({ match, onPress }: MatchCardProps) {
   const colors = useColors();
   const sportColor = SPORT_COLORS[match.sport];
@@ -93,6 +97,9 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
   const isLive = match.status === "live";
   const isFinished = match.status === "finished";
   const isUpcoming = match.status === "upcoming";
+
+  const minsUntil = isUpcoming ? minutesUntilStart(match.startTimestamp) : null;
+  const isStartingSoon = isUpcoming && minsUntil !== null && minsUntil >= 0 && minsUntil <= 30;
 
   const home = splitTeamName(match.homeTeam.name);
   const away = splitTeamName(match.awayTeam.name);
@@ -118,10 +125,18 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
               <Text style={styles.liveText}>LIVE</Text>
             </View>
           )}
+          {isStartingSoon && (
+            <View style={[styles.soonBadge, { backgroundColor: "#F39C12" }]}>
+              <View style={[styles.liveDot, { backgroundColor: "#fff" }]} />
+              <Text style={styles.liveText}>
+                {minsUntil! <= 1 ? "сейчас" : `через ${minsUntil} мин`}
+              </Text>
+            </View>
+          )}
           {isFinished && (
             <Text style={[styles.statusText, { color: colors.mutedForeground }]}>Завершён · {match.date}</Text>
           )}
-          {isUpcoming && (
+          {isUpcoming && !isStartingSoon && (
             <Text style={[styles.statusText, { color: colors.mutedForeground }]}>{match.startTime} · {match.date}</Text>
           )}
         </View>
@@ -219,6 +234,14 @@ const styles = StyleSheet.create({
   },
   league: { fontSize: 11, fontFamily: "Inter_500Medium", flex: 1 },
   liveBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 4,
+  },
+  soonBadge: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 7,
