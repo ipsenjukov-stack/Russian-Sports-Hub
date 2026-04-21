@@ -1,5 +1,6 @@
 import { Router } from "express";
 import path from "path";
+import fs from "fs";
 import { translateTeam, translateVenue } from "./sportsTranslations";
 
 const router = Router();
@@ -16,6 +17,14 @@ const SOFASCORE_HEADERS: Record<string, string> = {
 };
 const KHL_TOURNAMENT_IDS = new Set<number>([268]);
 const SOFASCORE_KHL_BADGE = "https://api.sofascore.app/api/v1/unique-tournament/268/image/dark";
+
+// Sofascore tournament IDs for other leagues
+const VTB_TOURNAMENT_ID = 128;       // Единая лига ВТБ (basketball)
+const VOLLEY_TOURNAMENT_ID = 1009;   // Pari Суперлига (volleyball men)
+
+// Fallback season ID pairs [tournamentId, [candidateSeasonIds]]
+const VTB_FALLBACK_SEASONS = [67000, 66500, 66000, 65500, 65000, 64500, 64000, 63000, 62000, 61000, 60000];
+const VOLLEY_FALLBACK_SEASONS = [67000, 66500, 66000, 65500, 65000, 64500, 64000, 63000, 62000, 61000, 60000];
 
 // ── Cache ────────────────────────────────────────────────────────────────────
 interface CacheEntry { data: unknown; fetchedAt: number }
@@ -152,7 +161,7 @@ async function fetchEspnFootball(leagueBadge: string): Promise<unknown[]> {
 }
 
 // ── Sofascore КХЛ helpers ─────────────────────────────────────────────────────
-interface SofascoreTeam { id: number; name: string }
+interface SofascoreTeam { id: number; name: string; shortName?: string }
 interface SofascoreScore { current?: number }
 interface SofascoreStatus { code: number; description: string; type: string }
 interface SofascoreEvent {
@@ -164,6 +173,351 @@ interface SofascoreEvent {
   awayScore: SofascoreScore;
   startTimestamp: number;
   tournament: { name: string; uniqueTournament?: { id: number } };
+  season?: { id: number; year: string };
+}
+
+// ── KHL Persistent file cache ─────────────────────────────────────────────────
+const KHL_CACHE_FILE = "/tmp/khl_standings_cache.json";
+
+type KhlPersistentCache = {
+  seasonId: number;
+  seasonYear: string;
+  savedAt: number;
+  conferences: KhlConference[];
+};
+
+function loadKhlPersistentCache(): KhlPersistentCache | null {
+  try {
+    if (!fs.existsSync(KHL_CACHE_FILE)) return null;
+    const raw = fs.readFileSync(KHL_CACHE_FILE, "utf-8");
+    const data = JSON.parse(raw) as KhlPersistentCache;
+    // Standings cache valid for 7 days (regular season is final for months)
+    const maxAge = 7 * 24 * 60 * 60 * 1000;
+    if (Date.now() - data.savedAt > maxAge) return null;
+    return data;
+  } catch { return null; }
+}
+
+function saveKhlPersistentCache(seasonId: number, seasonYear: string, conferences: KhlConference[]): void {
+  try {
+    const data: KhlPersistentCache = { seasonId, seasonYear, savedAt: Date.now(), conferences };
+    fs.writeFileSync(KHL_CACHE_FILE, JSON.stringify(data), "utf-8");
+  } catch { /* ignore write errors */ }
+}
+
+// Module-level cache for current KHL season ID — persists in memory across requests
+// Cleared only on server restart; populated lazily on first successful event fetch
+let khlSeasonIdCache: { id: number; year: string; fetchedAt: number } | null = null;
+
+// Candidate season IDs to try when events aren't available (most recent first)
+// KHL 2025-26 regular season expected around 63000-66000; 2024-25 playoffs = 61390
+const KHL_FALLBACK_SEASON_IDS = [
+  { id: 65000, year: "25/26" },
+  { id: 64000, year: "25/26" },
+  { id: 63500, year: "25/26" },
+  { id: 63000, year: "25/26" },
+  { id: 62500, year: "25/26" },
+  { id: 61390, year: "24/25" },
+];
+
+async function tryKhlSeasonId(id: number, year: string): Promise<boolean> {
+  const url = `https://api.sofascore.app/api/v1/unique-tournament/268/season/${id}/standings/total`;
+  try {
+    const data = await fetchWithCache(url, SOFASCORE_HEADERS, CACHE_TTL_HIST_MS) as { standings?: unknown[] };
+    return Array.isArray(data.standings) && data.standings.length > 0;
+  } catch { return false; }
+}
+
+async function getKhlCurrentSeasonId(): Promise<{ id: number; year: string } | null> {
+  if (khlSeasonIdCache) {
+    return { id: khlSeasonIdCache.id, year: khlSeasonIdCache.year };
+  }
+  // Try to extract season ID from recent cached scheduled-events first
+  const now = new Date();
+  for (let i = -3; i <= 7; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + i);
+    const date = d.toISOString().slice(0, 10);
+    const url = `https://api.sofascore.app/api/v1/sport/ice-hockey/scheduled-events/${date}`;
+    const ttl = i < 0 ? CACHE_TTL_HIST_MS : CACHE_TTL_MS;
+    try {
+      const data = await fetchWithCache(url, SOFASCORE_HEADERS, ttl) as { events?: SofascoreEvent[] };
+      const khlEvent = (data.events ?? []).find(
+        (e) => KHL_TOURNAMENT_IDS.has(e.tournament?.uniqueTournament?.id ?? -1) || e.tournament?.name === "KHL",
+      );
+      if (khlEvent?.season?.id) {
+        khlSeasonIdCache = { id: khlEvent.season.id, year: khlEvent.season.year, fetchedAt: Date.now() };
+        return { id: khlEvent.season.id, year: khlEvent.season.year };
+      }
+    } catch { /* skip */ }
+  }
+  // Fallback: probe known candidate season IDs
+  for (const candidate of KHL_FALLBACK_SEASON_IDS) {
+    const valid = await tryKhlSeasonId(candidate.id, candidate.year);
+    if (valid) {
+      khlSeasonIdCache = { id: candidate.id, year: candidate.year, fetchedAt: Date.now() };
+      return { id: candidate.id, year: candidate.year };
+    }
+  }
+  // Last resort: use the persistent file cache season ID (might be from a previous run)
+  const fileCached = loadKhlPersistentCache();
+  if (fileCached && fileCached.seasonId > 0) {
+    khlSeasonIdCache = { id: fileCached.seasonId, year: fileCached.seasonYear, fetchedAt: Date.now() };
+    return { id: fileCached.seasonId, year: fileCached.seasonYear };
+  }
+  return null;
+}
+
+// ── Sofascore KHL Standings ───────────────────────────────────────────────────
+interface SofascoreStandingsRow {
+  team: SofascoreTeam;
+  position: number;
+  matches?: number;
+  wins?: number;
+  losses?: number;
+  winsInProlongation?: number;
+  winsInPenalties?: number;
+  lossesInProlongation?: number;
+  lossesInPenalties?: number;
+  points?: number;
+  scoresFor?: number;
+  scoresAgainst?: number;
+}
+
+type SofascoreStandingsGroup = {
+  name: string;
+  type: string;
+  rows: SofascoreStandingsRow[];
+};
+
+// Translate Sofascore conference group name to Russian
+function confName(raw: string): string {
+  const lo = raw.toLowerCase();
+  if (lo.includes("eastern") || lo.includes("east conf")) return "Восток";
+  if (lo.includes("western") || lo.includes("west conf")) return "Запад";
+  if (lo.includes("east")) return "Восток";
+  if (lo.includes("west")) return "Запад";
+  if (lo === "total") return "Общая";
+  return raw;
+}
+
+// Only keep the two main conference groups (not division sub-groups)
+function isMainConferenceGroup(name: string): boolean {
+  const lo = name.toLowerCase();
+  return (
+    (lo.includes("eastern") || lo.includes("western")) &&
+    lo.includes("conference")
+  );
+}
+
+type KhlStandingRow = {
+  rank: number; team: string; badge: string;
+  gp: number; w: number; otw: number; otl: number; l: number;
+  gf: number; ga: number; pts: number;
+};
+
+type KhlConference = { name: string; rows: KhlStandingRow[] };
+
+async function fetchKhlConferenceStandings(): Promise<{ conferences: KhlConference[]; season: string } | null> {
+  const season = await getKhlCurrentSeasonId();
+  if (!season) return null;
+
+  const url = `https://api.sofascore.app/api/v1/unique-tournament/268/season/${season.id}/standings/total`;
+  try {
+    const data = await fetchWithCache(url, SOFASCORE_HEADERS) as { standings?: SofascoreStandingsGroup[] };
+    const groups = data.standings ?? [];
+    const mainGroups = groups.filter((g) => isMainConferenceGroup(g.name) && g.rows?.length > 0);
+    // Fallback: if no groups matched the filter, try all groups with >8 rows
+    const filtered = mainGroups.length > 0 ? mainGroups : groups.filter((g) => (g.rows?.length ?? 0) >= 8);
+    const conferences: KhlConference[] = filtered
+      .map((g) => ({
+        name: confName(g.name),
+        rows: g.rows.map((r) => ({
+          rank: r.position,
+          team: translateTeam(r.team.name),
+          badge: proxyImg(`https://api.sofascore.app/api/v1/team/${r.team.id}/image`),
+          gp: r.matches ?? 0,
+          w: r.wins ?? 0,
+          otw: (r.winsInProlongation ?? 0) + (r.winsInPenalties ?? 0),
+          otl: (r.lossesInProlongation ?? 0) + (r.lossesInPenalties ?? 0),
+          l: r.losses ?? 0,
+          gf: r.scoresFor ?? 0,
+          ga: r.scoresAgainst ?? 0,
+          pts: r.points ?? 0,
+        })),
+      }));
+    return { conferences, season: season.year };
+  } catch {
+    return null;
+  }
+}
+
+// ── Sofascore KHL Playoffs (CupTrees) ────────────────────────────────────────
+interface SofascoreCupParticipant {
+  team?: SofascoreTeam;
+  wins?: number;
+}
+interface SofascoreCupBlock {
+  participants?: SofascoreCupParticipant[];
+}
+interface SofascoreCupRound {
+  name?: string;
+  blocks?: SofascoreCupBlock[];
+}
+interface SofascoreCupTree {
+  name?: string;
+  rounds?: SofascoreCupRound[];
+}
+
+type KhlPlayoffSeries = {
+  round: string;
+  homeTeam: string;
+  homeBadge: string;
+  homeWins: number;
+  awayTeam: string;
+  awayBadge: string;
+  awayWins: number;
+  seriesLength: number;
+};
+
+async function fetchKhlPlayoffsFromEvents(): Promise<{ rounds: { name: string; series: KhlPlayoffSeries[] }[]; season: string } | null> {
+  const season = await getKhlCurrentSeasonId();
+
+  // Fetch a 35-day window: -28 days (covers most playoff rounds) to +7 days ahead
+  // Uses same URL pattern as fetchSofascoreHockey → shares cache
+  const now = new Date();
+  const tasks: Array<() => Promise<void>> = [];
+  const allEvents: SofascoreEvent[] = [];
+
+  for (let i = -28; i <= 7; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + i);
+    const date = d.toISOString().slice(0, 10);
+    const url = `https://api.sofascore.app/api/v1/sport/ice-hockey/scheduled-events/${date}`;
+    const ttl = i < 0 ? CACHE_TTL_HIST_MS : CACHE_TTL_MS;
+    tasks.push(async () => {
+      try {
+        const data = await fetchWithCache(url, SOFASCORE_HEADERS, ttl) as { events?: SofascoreEvent[] };
+        const khl = (data.events ?? []).filter(
+          (e) => KHL_TOURNAMENT_IDS.has(e.tournament?.uniqueTournament?.id ?? -1) || e.tournament?.name === "KHL",
+        );
+        allEvents.push(...khl);
+      } catch { /* skip */ }
+    });
+  }
+  await pLimit(tasks, 3);
+
+  if (allEvents.length === 0) return null;
+
+  // Group ALL events by team-pair key (sorted by team ID for stability)
+  type SeriesData = {
+    team1: SofascoreTeam; team2: SofascoreTeam;
+    team1Wins: number; team2Wins: number;
+    lastTimestamp: number;
+    gameCount: number;
+  };
+  const seriesMap = new Map<string, SeriesData>();
+
+  for (const ev of allEvents) {
+    const t1 = ev.homeTeam;
+    const t2 = ev.awayTeam;
+    // Sort team IDs to get stable key regardless of home/away assignment
+    const [a, b] = t1.id < t2.id ? [t1, t2] : [t2, t1];
+    const key = `${a.id}|${b.id}`;
+
+    if (!seriesMap.has(key)) {
+      seriesMap.set(key, { team1: a, team2: b, team1Wins: 0, team2Wins: 0, lastTimestamp: 0, gameCount: 0 });
+    }
+    const s = seriesMap.get(key)!;
+    s.gameCount++;
+    if (ev.startTimestamp > s.lastTimestamp) s.lastTimestamp = ev.startTimestamp;
+
+    const finished = ev.status?.type === "finished";
+    if (finished) {
+      const hScore = ev.homeScore?.current ?? 0;
+      const aScore = ev.awayScore?.current ?? 0;
+      if (hScore !== aScore) {
+        const winnerTeam = hScore > aScore ? t1 : t2;
+        if (winnerTeam.id === a.id) s.team1Wins++; else s.team2Wins++;
+      }
+    }
+  }
+
+  // Keep series with at least 1 game (include upcoming series with 0-0 score)
+  const activeSeries = Array.from(seriesMap.values())
+    .filter((s) => s.gameCount > 0)
+    .sort((a, b) => b.lastTimestamp - a.lastTimestamp)
+    .slice(0, 12); // cap at 12 series max
+
+  if (activeSeries.length === 0) return null;
+
+  const series: KhlPlayoffSeries[] = activeSeries.map((s) => ({
+    round: "Плей-офф",
+    homeTeam: translateTeam(s.team1.name),
+    homeBadge: proxyImg(`https://api.sofascore.app/api/v1/team/${s.team1.id}/image`),
+    homeWins: s.team1Wins,
+    awayTeam: translateTeam(s.team2.name),
+    awayBadge: proxyImg(`https://api.sofascore.app/api/v1/team/${s.team2.id}/image`),
+    awayWins: s.team2Wins,
+    seriesLength: s.team1Wins + s.team2Wins,
+  }));
+
+  const seasonYear = season?.year ?? "25/26";
+  return { rounds: [{ name: `Плей-офф ${seasonYear}`, series }], season: seasonYear };
+}
+
+// ── Generic Sofascore league standings (basketball / volleyball) ──────────────
+type SimpleStandingRow = {
+  rank: number; team: string; badge: string;
+  gp: number; w: number; d: number; l: number;
+  gf: number; ga: number; gd: number; pts: number;
+};
+
+async function probeSofascoreSeasonId(tournamentId: number, candidates: number[]): Promise<{ id: number } | null> {
+  for (const seasonId of candidates) {
+    const url = `https://api.sofascore.app/api/v1/unique-tournament/${tournamentId}/season/${seasonId}/standings/total`;
+    try {
+      const data = await fetchWithCache(url, SOFASCORE_HEADERS, CACHE_TTL_HIST_MS) as { standings?: unknown[] };
+      if (Array.isArray(data.standings) && data.standings.length > 0) {
+        return { id: seasonId };
+      }
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
+async function fetchSofascoreLeagueStandings(
+  tournamentId: number,
+  seasonCandidates: number[],
+  leagueName: string,
+): Promise<{ entries: SimpleStandingRow[]; season: string; league: string } | null> {
+  const season = await probeSofascoreSeasonId(tournamentId, seasonCandidates);
+  if (!season) return null;
+  const url = `https://api.sofascore.app/api/v1/unique-tournament/${tournamentId}/season/${season.id}/standings/total`;
+  try {
+    const data = await fetchWithCache(url, SOFASCORE_HEADERS) as { standings?: SofascoreStandingsGroup[] };
+    // Pick the largest group (the main regular-season table)
+    const groups = data.standings ?? [];
+    const mainGroup = groups.reduce<SofascoreStandingsGroup | null>(
+      (best, g) => (!best || (g.rows?.length ?? 0) > (best.rows?.length ?? 0) ? g : best),
+      null,
+    );
+    if (!mainGroup || !mainGroup.rows?.length) return null;
+    const entries: SimpleStandingRow[] = mainGroup.rows.map((r) => ({
+      rank: r.position,
+      team: translateTeam(r.team.name),
+      badge: proxyImg(`https://api.sofascore.app/api/v1/team/${r.team.id}/image`),
+      gp: r.matches ?? 0,
+      w: r.wins ?? 0,
+      d: 0,
+      l: r.losses ?? 0,
+      gf: r.scoresFor ?? 0,
+      ga: r.scoresAgainst ?? 0,
+      gd: (r.scoresFor ?? 0) - (r.scoresAgainst ?? 0),
+      pts: r.points ?? 0,
+    }));
+    return { entries, season: String(season.id), league: leagueName };
+  } catch { return null; }
 }
 
 function khlPeriodLabel(code: number, description: string): string | undefined {
@@ -530,6 +884,57 @@ router.get("/sports/standings", async (req, res) => {
       const seasonMatch = rawSeason.match(/(\d{4}-\d{2,4})/);
       const season = seasonMatch ? seasonMatch[1] : rawSeason;
       return res.json({ league: "Российская Премьер-лига", season, entries });
+    }
+    if (sport === "hockey") {
+      const [standingsResult, playoffsResult] = await Promise.allSettled([
+        fetchKhlConferenceStandings(),
+        fetchKhlPlayoffsFromEvents(),
+      ]);
+      const standings = standingsResult.status === "fulfilled" ? standingsResult.value : null;
+      const playoffs = playoffsResult.status === "fulfilled" ? playoffsResult.value : null;
+
+      // If fresh standings data came in, persist to file for future restarts
+      if (standings && standings.conferences.length > 0) {
+        saveKhlPersistentCache(khlSeasonIdCache?.id ?? 0, standings.season, standings.conferences);
+      }
+
+      // Fall back to file cache when Sofascore is unreachable
+      let conferences = standings?.conferences ?? [];
+      let season = standings?.season ?? playoffs?.season ?? null;
+      if (conferences.length === 0) {
+        const cached = loadKhlPersistentCache();
+        if (cached) {
+          conferences = cached.conferences;
+          season = season ?? cached.seasonYear;
+          req.log.info({ season: cached.seasonYear, teams: cached.conferences.reduce((n, c) => n + c.rows.length, 0) }, "КХЛ standings: using file cache");
+        }
+      }
+
+      return res.json({
+        league: "КХЛ",
+        season,
+        entries: [],
+        conferences,
+        playoffs: playoffs?.rounds ?? [],
+      });
+    }
+    if (sport === "basketball") {
+      const result = await fetchSofascoreLeagueStandings(
+        VTB_TOURNAMENT_ID, VTB_FALLBACK_SEASONS, "Единая лига ВТБ",
+      );
+      if (result) {
+        return res.json({ league: result.league, season: result.season, entries: result.entries });
+      }
+      return res.json({ league: "Единая лига ВТБ", season: null, entries: [] });
+    }
+    if (sport === "volleyball") {
+      const result = await fetchSofascoreLeagueStandings(
+        VOLLEY_TOURNAMENT_ID, VOLLEY_FALLBACK_SEASONS, "Pari Суперлига",
+      );
+      if (result) {
+        return res.json({ league: result.league, season: result.season, entries: result.entries });
+      }
+      return res.json({ league: "Pari Суперлига", season: null, entries: [] });
     }
     return res.json({ league: null, season: null, entries: [] });
   } catch (err) {

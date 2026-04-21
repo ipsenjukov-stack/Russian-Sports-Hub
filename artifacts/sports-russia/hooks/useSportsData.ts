@@ -16,9 +16,34 @@ export interface StandingEntry {
   gf: number; ga: number; gd: number; pts: number;
 }
 
+export interface KhlStandingRow {
+  rank: number; team: string; badge: string;
+  gp: number; w: number; otw: number; otl: number; l: number;
+  gf: number; ga: number; pts: number;
+}
+
+export interface KhlConference {
+  name: string;
+  rows: KhlStandingRow[];
+}
+
+export interface KhlPlayoffSeries {
+  round: string;
+  homeTeam: string; homeBadge: string; homeWins: number;
+  awayTeam: string; awayBadge: string; awayWins: number;
+  seriesLength: number;
+}
+
+export interface KhlPlayoffRound {
+  name: string;
+  series: KhlPlayoffSeries[];
+}
+
 export interface StandingsData {
   league: string | null; season: string | null;
   entries: StandingEntry[];
+  conferences?: KhlConference[];
+  playoffs?: KhlPlayoffRound[];
 }
 
 async function fetchStandings(sport: string): Promise<StandingsData> {

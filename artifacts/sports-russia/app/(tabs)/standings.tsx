@@ -15,6 +15,7 @@ import { useColors } from "@/hooks/useColors";
 import { useStandings, StandingEntry } from "@/hooks/useSportsData";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
+import { KhlStandingsView } from "@/components/KhlStandingsView";
 
 const SPORTS = [
   { key: "football", label: "Футбол" },
@@ -56,8 +57,13 @@ function TeamBadge({ uri, teamName, size = 28 }: { uri: string; teamName: string
   );
 }
 
-function StandingsTable({ entries, colors }: { entries: StandingEntry[]; colors: ReturnType<typeof useColors> }) {
-  const cols = ["М", "ЗГ", "ПГ", "РМ", "О"];
+function StandingsTable({ entries, sport, colors }: { entries: StandingEntry[]; sport: string; colors: ReturnType<typeof useColors> }) {
+  const isBasketball = sport === "basketball";
+  const isVolleyball = sport === "volleyball";
+  const isSimpleSport = isBasketball || isVolleyball;
+  const cols = isSimpleSport
+    ? ["И", "В", "П", "О"]
+    : ["М", "ЗГ", "ПГ", "РМ", "О"];
   return (
     <View style={styles.table}>
       <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
@@ -90,11 +96,20 @@ function StandingsTable({ entries, colors }: { entries: StandingEntry[]; colors:
               </Text>
             </View>
             <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gp}</Text>
-            <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gf}</Text>
-            <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.ga}</Text>
-            <Text style={[styles.statCell, { color: e.gd > 0 ? colors.live : e.gd < 0 ? "#e53e3e" : colors.mutedForeground }]}>
-              {e.gd > 0 ? `+${e.gd}` : e.gd}
-            </Text>
+            {isSimpleSport ? (
+              <>
+                <Text style={[styles.statCell, { color: colors.live }]}>{e.w}</Text>
+                <Text style={[styles.statCell, { color: "#e53e3e" }]}>{e.l}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gf}</Text>
+                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.ga}</Text>
+                <Text style={[styles.statCell, { color: e.gd > 0 ? colors.live : e.gd < 0 ? "#e53e3e" : colors.mutedForeground }]}>
+                  {e.gd > 0 ? `+${e.gd}` : e.gd}
+                </Text>
+              </>
+            )}
             <Text style={[styles.statCell, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>{e.pts}</Text>
           </View>
         );
@@ -113,10 +128,18 @@ export default function StandingsScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
 
-  const noData = !isLoading && !isError && (!data?.entries || data.entries.length === 0);
+  const isHockey = sport === "hockey";
+  const hasHockeyData =
+    isHockey &&
+    !isLoading &&
+    !isError &&
+    ((data?.conferences?.length ?? 0) > 0 || (data?.playoffs?.length ?? 0) > 0);
+
+  const noData = !isLoading && !isError && !isHockey && (!data?.entries || data.entries.length === 0);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground }]}>Таблицы</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
@@ -124,6 +147,7 @@ export default function StandingsScreen() {
         </Text>
       </View>
 
+      {/* Sport pills */}
       <View style={[styles.sportFilter, { borderBottomColor: colors.border }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sportFilterInner}>
           {SPORTS.map((s) => {
@@ -153,6 +177,13 @@ export default function StandingsScreen() {
         <LoadingState count={10} />
       ) : isError ? (
         <ErrorState onRetry={refetch} />
+      ) : isHockey ? (
+        /* ── КХЛ special view ── */
+        <KhlStandingsView
+          conferences={data?.conferences ?? []}
+          playoffs={data?.playoffs ?? []}
+          bottomPadding={bottomPadding}
+        />
       ) : noData ? (
         <ScrollView contentContainerStyle={[styles.emptyContainer, { paddingBottom: bottomPadding }]}>
           <Text style={styles.emptyIcon}>🏆</Text>
@@ -166,7 +197,6 @@ export default function StandingsScreen() {
           style={styles.scroll}
           contentContainerStyle={{ paddingBottom: bottomPadding }}
           showsVerticalScrollIndicator={false}
-          horizontal={false}
           refreshControl={
             <RefreshControl
               refreshing={false}
@@ -182,13 +212,15 @@ export default function StandingsScreen() {
                   <Text style={[styles.leagueLabelText, { color: colors.foreground }]}>{data.league}</Text>
                 </View>
               )}
-              <StandingsTable entries={data?.entries ?? []} colors={colors} />
+              <StandingsTable entries={data?.entries ?? []} sport={sport} colors={colors} />
             </View>
           </ScrollView>
 
           <View style={[styles.legend, { borderTopColor: colors.border }]}>
             <Text style={[styles.legendText, { color: colors.mutedForeground }]}>
-              М — матчи · ЗГ — забито · ПГ — пропущено · РМ — разница · О — очки
+              {sport === "basketball" || sport === "volleyball"
+                ? "И — игры · В — победы · П — поражения · О — очки"
+                : "М — матчи · ЗГ — забито · ПГ — пропущено · РМ — разница · О — очки"}
             </Text>
           </View>
         </ScrollView>

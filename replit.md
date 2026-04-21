@@ -72,7 +72,15 @@ TheSportsDB serves mostly-transparent PNG badges for КХЛ (97-99%), Едина
 - **TheSportsDB**: proxied via `/api/sports/proxy-image` with ESPN UA
 - **Sofascore team/tournament images**: proxied via `/api/sports/proxy-image` with Sofascore UA + Referer header
 
-### Rate Limiting
+### Rate Limiting & Sofascore IP Blocking
 - `pLimit(tasks, 3)` helper limits concurrent requests to any single source
 - Past date fetches (> 1 day old) cached for 12h; today/future cached for 3 min
-- Sofascore IP blocking mitigated by sequential batching
+- Sofascore IP blocking: Varnish CDN bans IPs making too many requests; returns `HTTP 403`. Typical duration: 1-24 hours. Affects: КХЛ matches + all Sofascore-sourced standings.
+- **Persistent cache**: `/tmp/khl_standings_cache.json` — КХЛ standings file cache (7-day validity), survives server restarts. Written on first successful fetch, read as fallback when Sofascore is blocked.
+- **In production** (different IP): Sofascore works normally; all standings populated on first request.
+
+### Standings Data Sources
+- **Футбол (РПЛ)**: ESPN (`site.api.espn.com/apis/v2/sports/soccer/rus.1/standings`) — always available
+- **Хоккей (КХЛ)**: Sofascore unique-tournament/268 — conference standings + playoffs via events; persistent file cache `/tmp/khl_standings_cache.json`
+- **Баскетбол (ВТБ)**: Sofascore unique-tournament/128 — season auto-probed from candidates list
+- **Волейбол (Суперлига)**: Sofascore unique-tournament/1009 — season auto-probed from candidates list
