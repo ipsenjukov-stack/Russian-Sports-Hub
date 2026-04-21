@@ -10,10 +10,9 @@ import {
 import { useColors } from "@/hooks/useColors";
 import { SportType } from "@/types/sports";
 
-type FilterOption = "all" | SportType;
+type FilterOption = SportType;
 
 const FILTERS: { key: FilterOption; label: string; icon: string }[] = [
-  { key: "all", label: "Все", icon: "🏆" },
   { key: "football", label: "Футбол", icon: "⚽" },
   { key: "hockey", label: "Хоккей", icon: "🏒" },
   { key: "basketball", label: "Баскетбол", icon: "🏀" },
@@ -26,7 +25,6 @@ interface SportFilterBarProps {
 }
 
 const SPORT_COLORS: Record<FilterOption, string> = {
-  all: "#CC0000",
   football: "#2ECC71",
   hockey: "#3498DB",
   basketball: "#F39C12",

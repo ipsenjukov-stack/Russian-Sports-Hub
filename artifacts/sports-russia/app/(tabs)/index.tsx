@@ -20,18 +20,17 @@ import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { SportType } from "@/types/sports";
 
-type FilterOption = "all" | SportType;
+type FilterOption = SportType;
 
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [filter, setFilter] = useState<FilterOption>("all");
+  const [filter, setFilter] = useState<FilterOption>("football");
   const queryClient = useQueryClient();
 
   const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
 
-  const sport = filter === "all" ? undefined : filter;
-  const matches = (allMatches || []).filter((m) => !sport || m.sport === sport);
+  const matches = (allMatches || []).filter((m) => m.sport === filter);
   const liveMatches = matches.filter((m) => m.status === "live");
   const finishedMatches = matches.filter((m) => m.status === "finished");
   const upcomingMatches = matches.filter((m) => m.status === "upcoming");
