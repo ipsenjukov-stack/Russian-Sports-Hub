@@ -89,6 +89,27 @@ export async function registerWithBackend(
   } catch {}
 }
 
+const KHL_TEST_PAIRS = [
+  { home: "ЦСКА", away: "Динамо Москва", homeScore: 2, awayScore: 1 },
+  { home: "СКА", away: "Авангард", homeScore: 1, awayScore: 1 },
+  { home: "Металлург Мг", away: "Ак Барс", homeScore: 3, awayScore: 2 },
+  { home: "Локомотив", away: "Торпедо НН", homeScore: 0, awayScore: 1 },
+  { home: "Динамо Москва", away: "Барыс", homeScore: 4, awayScore: 2 },
+];
+
+export async function sendLocalTestNotification(): Promise<void> {
+  const match = KHL_TEST_PAIRS[Math.floor(Math.random() * KHL_TEST_PAIRS.length)];
+  const team = Math.random() < 0.5 ? match.home : match.away;
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: `🏒 Гол! ${team}`,
+      body: `${match.home} ${match.homeScore}:${match.awayScore} ${match.away} · КХЛ`,
+      sound: true,
+    },
+    trigger: { seconds: 1 } as Notifications.TimeIntervalTriggerInput,
+  });
+}
+
 export async function unregisterFromBackend(token: string): Promise<void> {
   const base = getApiBase();
   if (!base) return;

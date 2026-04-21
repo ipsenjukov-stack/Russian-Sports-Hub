@@ -26,7 +26,7 @@ import {
   unregisterFromBackend,
   setActivePrefs,
   setupAndroidChannel,
-  getApiBase,
+  sendLocalTestNotification,
   NotifPrefs,
   DEFAULT_NOTIF_PREFS,
 } from "@/services/pushNotifications";
@@ -465,23 +465,8 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                   activeOpacity={0.75}
                   onPress={async () => {
                     try {
-                      const base = getApiBase();
-                      const token = await AsyncStorage.getItem("@sports_russia_push_token");
-                      if (!token) {
-                        Alert.alert("Нет токена", "Выключите уведомления и включите заново, чтобы получить push-токен.");
-                        return;
-                      }
-                      const resp = await fetch(`${base}/api/notifications/test-goal`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ token }),
-                      });
-                      const data = await resp.json();
-                      if (data.ok) {
-                        Alert.alert("Тест отправлен ✅", `${data.title}\n${data.body}`);
-                      } else {
-                        Alert.alert("Ошибка", data.error ?? "Не удалось отправить");
-                      }
+                      await sendLocalTestNotification();
+                      Alert.alert("✅ Готово", "Уведомление придёт через секунду. Сверните приложение, чтобы увидеть его.");
                     } catch (e) {
                       Alert.alert("Ошибка", String(e));
                     }
