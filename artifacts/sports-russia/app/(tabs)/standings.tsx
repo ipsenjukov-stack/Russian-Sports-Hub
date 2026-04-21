@@ -57,7 +57,7 @@ function TeamBadge({ uri, teamName, size = 28 }: { uri: string; teamName: string
 }
 
 function StandingsTable({ entries, colors }: { entries: StandingEntry[]; colors: ReturnType<typeof useColors> }) {
-  const cols = ["М", "В", "Н", "П", "ЗГ", "ПГ", "РМ", "О"];
+  const cols = ["М", "ЗГ", "ПГ", "РМ", "О"];
   return (
     <View style={styles.table}>
       <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
@@ -90,9 +90,6 @@ function StandingsTable({ entries, colors }: { entries: StandingEntry[]; colors:
               </Text>
             </View>
             <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gp}</Text>
-            <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.w}</Text>
-            <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.d}</Text>
-            <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.l}</Text>
             <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gf}</Text>
             <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.ga}</Text>
             <Text style={[styles.statCell, { color: e.gd > 0 ? colors.live : e.gd < 0 ? "#e53e3e" : colors.mutedForeground }]}>
@@ -191,7 +188,7 @@ export default function StandingsScreen() {
 
           <View style={[styles.legend, { borderTopColor: colors.border }]}>
             <Text style={[styles.legendText, { color: colors.mutedForeground }]}>
-              М — матчи · В — победы · Н — ничьи · П — поражения · ЗГ — забито · ПГ — пропущено · РМ — разница · О — очки
+              М — матчи · ЗГ — забито · ПГ — пропущено · РМ — разница · О — очки
             </Text>
           </View>
         </ScrollView>
