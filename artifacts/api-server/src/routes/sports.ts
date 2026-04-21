@@ -23,13 +23,30 @@ async function fetchWithCache(url: string, headers?: Record<string, string>): Pr
   return data;
 }
 
+// ── League badge fetching ─────────────────────────────────────────────────────
+async function fetchLeagueBadge(leagueId: string): Promise<string> {
+  try {
+    const url = `${THESPORTSDB_BASE}/lookupleague.php?id=${leagueId}`;
+    const data = (await fetchWithCache(url)) as { leagues?: Array<{ strBadge?: string }> };
+    return data.leagues?.[0]?.strBadge ?? "";
+  } catch {
+    return "";
+  }
+}
+
 // ── ESPN football helpers ─────────────────────────────────────────────────────
 type EspnState = "pre" | "in" | "post";
 
 interface EspnCompetitor {
   homeAway: "home" | "away";
   score?: string;
-  team: { id: string; name: string; displayName: string; abbreviation: string };
+  team: {
+    id: string;
+    name: string;
+    displayName: string;
+    abbreviation: string;
+    logo?: string;
+  };
 }
 
 interface EspnEvent {
@@ -48,7 +65,7 @@ function dateStr(offsetDays: number): string {
   return d.toISOString().slice(0, 10).replace(/-/g, "");
 }
 
-function mapEspnEvent(e: EspnEvent): Record<string, unknown> {
+async function mapEspnEvent(e: EspnEvent, leagueBadge: string): Promise<Record<string, unknown>> {
   const comp = e.competitions[0];
   if (!comp) return {};
   const home = comp.competitors.find((c) => c.homeAway === "home");
@@ -74,6 +91,8 @@ function mapEspnEvent(e: EspnEvent): Record<string, unknown> {
     idEvent: `espn_${e.id}`,
     strHomeTeam: homeName,
     strAwayTeam: awayName,
+    strHomeTeamBadge: home?.team?.logo ?? null,
+    strAwayTeamBadge: away?.team?.logo ?? null,
     intHomeScore: home?.score ?? null,
     intAwayScore: away?.score ?? null,
     dateEvent: d.toISOString().slice(0, 10),
@@ -82,18 +101,19 @@ function mapEspnEvent(e: EspnEvent): Record<string, unknown> {
     strVenue: venue,
     _sport: "football",
     _leagueName: "Российская Премьер-лига",
+    _leagueBadge: leagueBadge,
     _espnState: state,
     _periodLabel: periodLabel,
     _source: "espn",
   };
 }
 
-async function fetchEspnFootball(): Promise<unknown[]> {
+async function fetchEspnFootball(leagueBadge: string): Promise<unknown[]> {
   const start = dateStr(-90); // 90 days back
   const end = dateStr(60);    // 60 days ahead
   const url = `${ESPN_BASE}?dates=${start}-${end}&limit=300`;
   const data = (await fetchWithCache(url, { "User-Agent": ESPN_UA })) as { events?: EspnEvent[] };
-  return (data.events ?? []).map(mapEspnEvent);
+  return await Promise.all((data.events ?? []).map((e) => mapEspnEvent(e, leagueBadge)));
 }
 
 // ── TheSportsDB helpers ───────────────────────────────────────────────────────
@@ -101,6 +121,8 @@ type RawEvent = {
   idEvent: string;
   strHomeTeam: string;
   strAwayTeam: string;
+  strHomeTeamBadge?: string | null;
+  strAwayTeamBadge?: string | null;
   strVenue?: string | null;
   [key: string]: unknown;
 };
@@ -115,10 +137,13 @@ function localizeEvent(e: RawEvent): RawEvent {
 }
 
 const SPORTSDB_LEAGUES = [
-  { id: "4920", sport: "hockey",     name: "КХЛ",                 seasons: ["2025-2026", "2024-2025"] },
-  { id: "4476", sport: "basketball", name: "Единая лига ВТБ",     seasons: ["2024-2025", "2023-2024"] },
-  { id: "4545", sport: "volleyball", name: "Суперлига Волейбол",  seasons: ["2024-2025", "2023-2024"] },
+  { id: "4920", sport: "hockey",     name: "КХЛ",                seasons: ["2025-2026", "2024-2025"] },
+  { id: "4476", sport: "basketball", name: "Единая лига ВТБ",    seasons: ["2024-2025", "2023-2024"] },
+  { id: "4545", sport: "volleyball", name: "Суперлига Волейбол", seasons: ["2024-2025", "2023-2024"] },
 ];
+
+// TheSportsDB league ID for Russian Premier League (for badge only)
+const RPL_SPORTSDB_ID = "4480";
 
 async function fetchSportsDBEvents(): Promise<unknown[]> {
   const allEvents: unknown[] = [];
@@ -126,15 +151,22 @@ async function fetchSportsDBEvents(): Promise<unknown[]> {
     SPORTSDB_LEAGUES.flatMap((league) =>
       league.seasons.map(async (season) => {
         try {
-          const url = `${THESPORTSDB_BASE}/eventsseason.php?id=${encodeURIComponent(league.id)}&s=${encodeURIComponent(season)}`;
-          const data = (await fetchWithCache(url)) as { events?: RawEvent[] };
-          const events = (data?.events ?? []).map((e) => ({
+          const [events, badge] = await Promise.all([
+            (async () => {
+              const url = `${THESPORTSDB_BASE}/eventsseason.php?id=${encodeURIComponent(league.id)}&s=${encodeURIComponent(season)}`;
+              const data = (await fetchWithCache(url)) as { events?: RawEvent[] };
+              return data?.events ?? [];
+            })(),
+            fetchLeagueBadge(league.id),
+          ]);
+          const mapped = events.map((e) => ({
             ...localizeEvent(e),
             _sport: league.sport,
             _leagueName: league.name,
+            _leagueBadge: badge,
             _source: "sportsdb",
           }));
-          allEvents.push(...events);
+          allEvents.push(...mapped);
         } catch {
           // Skip failed leagues silently
         }
@@ -149,10 +181,12 @@ async function fetchSportsDBEvents(): Promise<unknown[]> {
 // GET /api/sports/all-matches
 router.get("/sports/all-matches", async (req, res) => {
   try {
-    const [espnEvents, sportsdbEvents] = await Promise.all([
-      fetchEspnFootball().catch(() => [] as unknown[]),
+    const [rplBadge, sportsdbEvents] = await Promise.all([
+      fetchLeagueBadge(RPL_SPORTSDB_ID),
       fetchSportsDBEvents(),
     ]);
+
+    const espnEvents = await fetchEspnFootball(rplBadge).catch(() => [] as unknown[]);
 
     const allEvents = [...espnEvents, ...sportsdbEvents];
 

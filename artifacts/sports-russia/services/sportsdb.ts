@@ -21,6 +21,8 @@ export interface SportsDBEvent {
   idEvent: string;
   strHomeTeam: string;
   strAwayTeam: string;
+  strHomeTeamBadge?: string | null;
+  strAwayTeamBadge?: string | null;
   intHomeScore: string | null;
   intAwayScore: string | null;
   dateEvent: string;
@@ -29,6 +31,7 @@ export interface SportsDBEvent {
   strVenue: string | null;
   _sport: SportType;
   _leagueName: string;
+  _leagueBadge?: string | null;
   // ESPN extras
   _espnState?: "pre" | "in" | "post";
   _periodLabel?: string;
@@ -92,19 +95,20 @@ export function mapEventToMatch(event: SportsDBEvent): Match {
       id: event.strHomeTeam.toLowerCase().replace(/\s+/g, "-"),
       name: event.strHomeTeam,
       shortName: abbrev(event.strHomeTeam),
-      logo: "",
+      logo: event.strHomeTeamBadge ?? "",
     },
     awayTeam: {
       id: event.strAwayTeam.toLowerCase().replace(/\s+/g, "-"),
       name: event.strAwayTeam,
       shortName: abbrev(event.strAwayTeam),
-      logo: "",
+      logo: event.strAwayTeamBadge ?? "",
     },
     homeScore,
     awayScore,
     startTime: timeStr,
     date: dateStr,
     league: event._leagueName,
+    leagueLogo: event._leagueBadge ?? undefined,
     venue: event.strVenue || undefined,
     period: event._periodLabel,
   };

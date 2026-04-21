@@ -22,6 +22,7 @@ export interface Match {
   startTime: string;
   date: string;
   league: string;
+  leagueLogo?: string;
   venue?: string;
 }
 

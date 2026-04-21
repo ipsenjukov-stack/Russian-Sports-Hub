@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Animated,
+  Image,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { Match, SportType } from "@/types/sports";
@@ -20,6 +20,56 @@ const SPORT_COLORS: Record<SportType, string> = {
 interface MatchCardProps {
   match: Match;
   onPress?: () => void;
+}
+
+function TeamLogo({ uri, name, size = 32 }: { uri?: string; name: string; size?: number }) {
+  const [error, setError] = React.useState(false);
+
+  if (uri && !error) {
+    return (
+      <Image
+        source={{ uri }}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
+        resizeMode="contain"
+        onError={() => setError(true)}
+      />
+    );
+  }
+
+  // Fallback: initials circle
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+
+  return (
+    <View
+      style={[
+        styles.logoFallback,
+        { width: size, height: size, borderRadius: size / 2 },
+      ]}
+    >
+      <Text style={[styles.logoFallbackText, { fontSize: size * 0.35 }]}>
+        {initials}
+      </Text>
+    </View>
+  );
+}
+
+function LeagueLogo({ uri, size = 18 }: { uri?: string; size?: number }) {
+  const [error, setError] = React.useState(false);
+  if (!uri || error) return null;
+  return (
+    <Image
+      source={{ uri }}
+      style={{ width: size, height: size, borderRadius: 3 }}
+      resizeMode="contain"
+      onError={() => setError(true)}
+    />
+  );
 }
 
 export function MatchCard({ match, onPress }: MatchCardProps) {
@@ -42,9 +92,12 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
       <View style={[styles.sportBar, { backgroundColor: sportColor }]} />
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={[styles.league, { color: colors.mutedForeground }]} numberOfLines={1}>
-            {match.league}
-          </Text>
+          <View style={styles.leagueRow}>
+            <LeagueLogo uri={match.leagueLogo} />
+            <Text style={[styles.league, { color: colors.mutedForeground }]} numberOfLines={1}>
+              {match.league}
+            </Text>
+          </View>
           {isLive && (
             <View style={[styles.liveBadge, { backgroundColor: colors.live }]}>
               <View style={styles.liveDot} />
@@ -72,21 +125,27 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
           </View>
 
           <View style={styles.scoreBlock}>
-            {isLive || isFinished ? (
-              <>
-                <Text style={[styles.score, { color: colors.foreground }]}>
-                  {match.homeScore} : {match.awayScore}
-                </Text>
-                {isLive && match.period && (
-                  <Text style={[styles.period, { color: colors.live }]}>{match.period}</Text>
+            <View style={styles.scoreRow}>
+              <TeamLogo uri={match.homeTeam.logo || undefined} name={home.name} size={28} />
+              <View style={styles.scoreCenter}>
+                {isLive || isFinished ? (
+                  <>
+                    <Text style={[styles.score, { color: colors.foreground }]}>
+                      {match.homeScore} : {match.awayScore}
+                    </Text>
+                    {isLive && match.period && (
+                      <Text style={[styles.period, { color: colors.live }]}>{match.period}</Text>
+                    )}
+                    {isLive && match.minute && !match.period && (
+                      <Text style={[styles.period, { color: colors.live }]}>{match.minute}'</Text>
+                    )}
+                  </>
+                ) : (
+                  <Text style={[styles.vsText, { color: colors.mutedForeground }]}>vs</Text>
                 )}
-                {isLive && match.minute && !match.period && (
-                  <Text style={[styles.period, { color: colors.live }]}>{match.minute}'</Text>
-                )}
-              </>
-            ) : (
-              <Text style={[styles.vsText, { color: colors.mutedForeground }]}>vs</Text>
-            )}
+              </View>
+              <TeamLogo uri={match.awayTeam.logo || undefined} name={away.name} size={28} />
+            </View>
           </View>
 
           <View style={[styles.teamBlock, styles.awayBlock]}>
@@ -137,11 +196,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  leagueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+    marginRight: 8,
+  },
   league: {
     fontSize: 11,
     fontFamily: "Inter_500Medium",
     flex: 1,
-    marginRight: 8,
   },
   liveBadge: {
     flexDirection: "row",
@@ -187,11 +252,20 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   scoreBlock: {
-    width: 80,
+    width: 110,
     alignItems: "center",
   },
+  scoreRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  scoreCenter: {
+    alignItems: "center",
+    minWidth: 46,
+  },
   score: {
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: "Inter_700Bold",
   },
   vsText: {
@@ -207,5 +281,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_400Regular",
     marginTop: 2,
+  },
+  logoFallback: {
+    backgroundColor: "#E8E8E8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoFallbackText: {
+    color: "#888",
+    fontFamily: "Inter_700Bold",
   },
 });
