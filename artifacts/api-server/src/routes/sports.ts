@@ -120,7 +120,7 @@ async function mapEspnEvent(e: EspnEvent, leagueBadge: string): Promise<Record<s
   const period = comp.status.period ?? 0;
   let periodLabel: string | undefined;
   if (state === "in") {
-    if (comp.status.type.shortDetail?.toLowerCase() === "ht") periodLabel = "ПТ";
+    if (comp.status.type.shortDetail?.toLowerCase() === "ht") periodLabel = "Перерыв";
     else if (period === 1) periodLabel = clock ? `${clock}` : "1-й тайм";
     else if (period === 2) periodLabel = clock ? `${clock}` : "2-й тайм";
     else if (period > 2) periodLabel = "ДОП";
