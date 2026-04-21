@@ -16,6 +16,7 @@ import { useStandings, StandingEntry } from "@/hooks/useSportsData";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { KhlStandingsView } from "@/components/KhlStandingsView";
+import { GearButton } from "@/components/GearButton";
 
 const SPORTS = [
   { key: "football", label: "Футбол" },
@@ -141,10 +142,15 @@ export default function StandingsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>Таблицы</Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {data?.season ? `${LEAGUE_NAMES[sport]} · ${data.season}` : LEAGUE_NAMES[sport]}
-        </Text>
+        <View style={styles.titleRow}>
+          <View>
+            <Text style={[styles.title, { color: colors.foreground }]}>Таблицы</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+              {data?.season ? `${LEAGUE_NAMES[sport]} · ${data.season}` : LEAGUE_NAMES[sport]}
+            </Text>
+          </View>
+          <GearButton />
+        </View>
       </View>
 
       {/* Sport pills */}
@@ -235,6 +241,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 20,
     paddingBottom: 12,
+  },
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   title: {
     fontSize: 26,

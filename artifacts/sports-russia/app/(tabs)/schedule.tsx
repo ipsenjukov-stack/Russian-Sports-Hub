@@ -18,6 +18,7 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
+import { GearButton } from "@/components/GearButton";
 import { SportType } from "@/types/sports";
 
 type FilterOption = "all" | SportType;
@@ -53,7 +54,10 @@ export default function ScheduleScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>Расписание</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: colors.foreground }]}>Расписание</Text>
+          <GearButton />
+        </View>
         <View style={styles.dateFilters}>
           {DATE_FILTERS.map((df) => {
             const isActive = dateFilter === df.key;
@@ -128,10 +132,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
   title: {
     fontSize: 26,
     fontFamily: "Inter_700Bold",
-    marginBottom: 12,
   },
   dateFilters: {
     flexDirection: "row",

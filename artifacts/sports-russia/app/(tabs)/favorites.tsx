@@ -19,6 +19,7 @@ import { SportFilterBar } from "@/components/SportFilterBar";
 import { SectionHeader } from "@/components/SectionHeader";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
+import { GearButton } from "@/components/GearButton";
 import { SportType } from "@/types/sports";
 
 type FilterOption = "all" | SportType;
@@ -70,12 +71,17 @@ export default function FavoritesScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>Избранное</Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {count > 0
-            ? `${count} ${count === 1 ? "команда" : count < 5 ? "команды" : "команд"}`
-            : "Нет избранных команд"}
-        </Text>
+        <View style={styles.titleRow}>
+          <View>
+            <Text style={[styles.title, { color: colors.foreground }]}>Избранное</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+              {count > 0
+                ? `${count} ${count === 1 ? "команда" : count < 5 ? "команды" : "команд"}`
+                : "Нет избранных команд"}
+            </Text>
+          </View>
+          <GearButton />
+        </View>
       </View>
 
       {favorites.length > 0 && (
@@ -167,6 +173,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 20,
     paddingBottom: 12,
+  },
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   title: { fontSize: 26, fontFamily: "Inter_700Bold" },
   subtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },

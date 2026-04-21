@@ -5,10 +5,8 @@ import {
   ScrollView,
   StyleSheet,
   RefreshControl,
-  TouchableOpacity,
   Platform,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -21,7 +19,7 @@ import { LiveCounter } from "@/components/LiveCounter";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
-import { SettingsModal } from "@/components/SettingsModal";
+import { GearButton } from "@/components/GearButton";
 import { SportType } from "@/types/sports";
 import { useFavorites } from "@/context/FavoritesContext";
 import { scheduleMatchReminders } from "@/services/pushNotifications";
@@ -32,7 +30,6 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<FilterOption>("football");
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const queryClient = useQueryClient();
   const { favorites } = useFavorites();
 
@@ -88,13 +85,7 @@ export default function HomeScreen() {
             <Text style={[styles.headerTitle, { color: colors.foreground }]}>Матчи</Text>
             <Text style={[styles.headerSubtitle, { color: colors.mutedForeground }]}>Лайв и результаты</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => setSettingsOpen(true)}
-            style={[styles.gearBtn, { backgroundColor: colors.muted }]}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="settings-outline" size={22} color={colors.foreground} />
-          </TouchableOpacity>
+          <GearButton />
         </View>
       </View>
 
@@ -151,7 +142,6 @@ export default function HomeScreen() {
         </ScrollView>
       )}
 
-      <SettingsModal visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </View>
   );
 }
@@ -176,13 +166,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     marginTop: 2,
-  },
-  gearBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
   },
   scroll: { flex: 1 },
 });
