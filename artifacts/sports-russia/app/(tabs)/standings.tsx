@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   headerTeam: {
-    width: 140,
+    width: 190,
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",
     paddingLeft: 4,
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   teamCell: {
-    width: 140,
+    width: 190,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
