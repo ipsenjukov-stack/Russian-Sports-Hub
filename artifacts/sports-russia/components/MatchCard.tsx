@@ -67,12 +67,12 @@ function LeagueLogo({ uri, size = 28 }: { uri?: string; size?: number }) {
   );
 }
 
-function StarButton({ teamName }: { teamName: string }) {
+function StarButton({ teamName, sport }: { teamName: string; sport: SportType }) {
   const { isFavorite, toggleFavorite } = useFavorites();
-  const starred = isFavorite(teamName);
+  const starred = isFavorite(teamName, sport);
   return (
     <TouchableOpacity
-      onPress={() => toggleFavorite(teamName)}
+      onPress={() => toggleFavorite(teamName, sport)}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       activeOpacity={0.7}
       style={styles.starBtn}
@@ -129,7 +129,7 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
         <View style={styles.matchRow}>
           <View style={styles.teamBlock}>
             <View style={styles.teamNameRow}>
-              <StarButton teamName={match.homeTeam.name} />
+              <StarButton teamName={match.homeTeam.name} sport={match.sport} />
               <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
                 {home.name}
               </Text>
@@ -170,7 +170,7 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
               <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
                 {away.name}
               </Text>
-              <StarButton teamName={match.awayTeam.name} />
+              <StarButton teamName={match.awayTeam.name} sport={match.sport} />
             </View>
             {away.city ? (
               <Text style={[styles.teamCity, { color: colors.mutedForeground }]} numberOfLines={1}>

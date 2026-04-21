@@ -23,6 +23,20 @@ import { SportType } from "@/types/sports";
 
 type FilterOption = "all" | SportType;
 
+const SPORT_LABELS: Record<SportType, string> = {
+  football: "Футбол",
+  hockey: "Хоккей",
+  basketball: "Баскетбол",
+  volleyball: "Волейбол",
+};
+
+const SPORT_ICONS: Record<SportType, string> = {
+  football: "⚽",
+  hockey: "🏒",
+  basketball: "🏀",
+  volleyball: "🏐",
+};
+
 export default function FavoritesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -36,7 +50,10 @@ export default function FavoritesScreen() {
 
   const favoriteMatches = (allMatches || []).filter((m) => {
     if (sportType && m.sport !== sportType) return false;
-    return favorites.has(m.homeTeam.name) || favorites.has(m.awayTeam.name);
+    return (
+      favorites.some((f) => f.name === m.homeTeam.name && f.sport === m.sport) ||
+      favorites.some((f) => f.name === m.awayTeam.name && f.sport === m.sport)
+    );
   });
 
   const liveMatches = favoriteMatches.filter((m) => m.status === "live");
@@ -48,36 +65,36 @@ export default function FavoritesScreen() {
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
 
-  const favoriteTeams = [...favorites];
+  const count = favorites.length;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground }]}>Избранное</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {favorites.size > 0
-            ? `${favorites.size} ${favorites.size === 1 ? "команда" : favorites.size < 5 ? "команды" : "команд"}`
+          {count > 0
+            ? `${count} ${count === 1 ? "команда" : count < 5 ? "команды" : "команд"}`
             : "Нет избранных команд"}
         </Text>
       </View>
 
-      {favorites.size > 0 && (
+      {favorites.length > 0 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={[styles.teamsBar, { borderBottomColor: colors.border }]}
           contentContainerStyle={styles.teamsBarInner}
         >
-          {favoriteTeams.map((team) => (
+          {favorites.map((fav) => (
             <TouchableOpacity
-              key={team}
-              onPress={() => toggleFavorite(team)}
+              key={`${fav.sport}::${fav.name}`}
+              onPress={() => toggleFavorite(fav.name, fav.sport)}
               style={[styles.teamChip, { backgroundColor: colors.muted, borderColor: colors.border }]}
               activeOpacity={0.7}
             >
-              <Ionicons name="star" size={11} color="#F5A623" />
+              <Text style={styles.sportEmoji}>{SPORT_ICONS[fav.sport]}</Text>
               <Text style={[styles.teamChipText, { color: colors.foreground }]} numberOfLines={1}>
-                {team}
+                {fav.name}
               </Text>
               <Ionicons name="close" size={12} color={colors.mutedForeground} />
             </TouchableOpacity>
@@ -85,13 +102,13 @@ export default function FavoritesScreen() {
         </ScrollView>
       )}
 
-      {favorites.size > 0 && <SportFilterBar selected={sport} onSelect={setSport} />}
+      {favorites.length > 0 && <SportFilterBar selected={sport} onSelect={setSport} />}
 
       {isLoading ? (
         <LoadingState count={4} />
       ) : isError ? (
         <ErrorState onRetry={refetch} />
-      ) : favorites.size === 0 ? (
+      ) : favorites.length === 0 ? (
         <View style={[styles.emptyContainer, { paddingBottom: bottomPadding }]}>
           <Ionicons name="star-outline" size={64} color={colors.mutedForeground} />
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Нет избранных команд</Text>
@@ -172,8 +189,9 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    maxWidth: 160,
+    maxWidth: 180,
   },
+  sportEmoji: { fontSize: 12 },
   teamChipText: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",

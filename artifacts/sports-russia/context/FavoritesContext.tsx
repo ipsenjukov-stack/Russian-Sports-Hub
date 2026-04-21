@@ -1,49 +1,59 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SportType } from "@/types/sports";
 
-const STORAGE_KEY = "@sports_russia_favorites";
+const STORAGE_KEY = "@sports_russia_favorites_v2";
+
+export interface FavoriteTeam {
+  name: string;
+  sport: SportType;
+}
+
+function makeKey(name: string, sport: SportType) {
+  return `${sport}::${name}`;
+}
 
 interface FavoritesContextValue {
-  favorites: Set<string>;
-  toggleFavorite: (teamName: string) => void;
-  isFavorite: (teamName: string) => boolean;
+  favorites: FavoriteTeam[];
+  toggleFavorite: (name: string, sport: SportType) => void;
+  isFavorite: (name: string, sport: SportType) => boolean;
 }
 
 const FavoritesContext = createContext<FavoritesContextValue>({
-  favorites: new Set(),
+  favorites: [],
   toggleFavorite: () => {},
   isFavorite: () => false,
 });
 
 export function FavoritesProvider({ children }: { children: React.ReactNode }) {
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [favorites, setFavorites] = useState<FavoriteTeam[]>([]);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
       if (raw) {
         try {
-          const arr = JSON.parse(raw) as string[];
-          setFavorites(new Set(arr));
+          const arr = JSON.parse(raw) as FavoriteTeam[];
+          setFavorites(arr);
         } catch {}
       }
     });
   }, []);
 
-  const toggleFavorite = useCallback((teamName: string) => {
+  const toggleFavorite = useCallback((name: string, sport: SportType) => {
     setFavorites((prev) => {
-      const next = new Set(prev);
-      if (next.has(teamName)) {
-        next.delete(teamName);
-      } else {
-        next.add(teamName);
-      }
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([...next]));
+      const key = makeKey(name, sport);
+      const exists = prev.some((f) => makeKey(f.name, f.sport) === key);
+      const next = exists
+        ? prev.filter((f) => makeKey(f.name, f.sport) !== key)
+        : [...prev, { name, sport }];
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       return next;
     });
   }, []);
 
   const isFavorite = useCallback(
-    (teamName: string) => favorites.has(teamName),
+    (name: string, sport: SportType) =>
+      favorites.some((f) => makeKey(f.name, f.sport) === makeKey(name, sport)),
     [favorites]
   );
 
