@@ -61,8 +61,8 @@ TheSportsDB serves mostly-transparent PNG badges for КХЛ (97-99%), Едина
   - Team logos: `https://api.sofascore.app/api/v1/team/{id}/image` (via proxy with Sofascore headers)
   - League badge: `https://api.sofascore.app/api/v1/unique-tournament/268/image/dark`
   - Period labels: Russian (1-й период, 2-й период, 3-й период, ОТ, Б/У)
-- **Единая лига ВТБ** (basketball): Sofascore — `/api/v1/sport/basketball/scheduled-events/{date}`, tournament ID 128, -7/+3 days window, same logic as КХЛ
-- **Pari Суперлига** (volleyball): Sofascore — `/api/v1/sport/volleyball/scheduled-events/{date}`, tournament ID 1009, -7/+3 days window, same logic as КХЛ
+- **Единая лига ВТБ** (basketball): Sofascore — `/api/v1/sport/basketball/scheduled-events/{date}`, tournament ID **1438** (NOT 128), season ID 80491 (25/26 season), -21/+14 days window
+- **Pari Суперлига** (volleyball): Sofascore — `/api/v1/sport/volleyball/scheduled-events/{date}`, tournament ID 1009, -21/+14 days window, same logic as КХЛ
 - **Translations**: `sportsTranslations.ts` (team names, venues → Russian)
   - КХЛ short names added (e.g. "Traktor" → "Трактор Челябинск", "SKA" → "СКА Санкт-Петербург")
 
@@ -82,5 +82,6 @@ TheSportsDB serves mostly-transparent PNG badges for КХЛ (97-99%), Едина
 ### Standings Data Sources
 - **Футбол (РПЛ)**: ESPN (`site.api.espn.com/apis/v2/sports/soccer/rus.1/standings`) — always available
 - **Хоккей (КХЛ)**: Sofascore unique-tournament/268 — conference standings + playoffs via events; persistent file cache `/tmp/khl_standings_cache.json`
-- **Баскетбол (ВТБ)**: Sofascore unique-tournament/128 — season auto-probed from candidates list
-- **Волейбол (Суперлига)**: Sofascore unique-tournament/1009 — season auto-probed from candidates list
+- **Баскетбол (ВТБ)**: Sofascore unique-tournament/**1438** — season ID 80491 (25/26), auto-probed from candidates; playoffs: returns `message` field "Идут плей-офф — турнирная таблица временно недоступна"
+- **Волейбол (Суперлига)**: Sofascore unique-tournament/1009 — season auto-probed from candidates; same playoffs message fallback
+- **TheSportsDB fallback**: When Sofascore is blocked, fetches last 2 seasons; sort shows 15 upcoming (nearest first) + 15 past (most recent first)

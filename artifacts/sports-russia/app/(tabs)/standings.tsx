@@ -193,9 +193,11 @@ export default function StandingsScreen() {
       ) : noData ? (
         <ScrollView contentContainerStyle={[styles.emptyContainer, { paddingBottom: bottomPadding }]}>
           <Text style={styles.emptyIcon}>🏆</Text>
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Данные недоступны</Text>
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+            {data?.message ? "Плей-офф" : "Данные недоступны"}
+          </Text>
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            Турнирная таблица {LEAGUE_NAMES[sport]} пока не добавлена
+            {data?.message ?? `Турнирная таблица ${LEAGUE_NAMES[sport]} пока не добавлена`}
           </Text>
         </ScrollView>
       ) : (

@@ -19,12 +19,12 @@ const KHL_TOURNAMENT_IDS = new Set<number>([268]);
 const SOFASCORE_KHL_BADGE = "https://api.sofascore.app/api/v1/unique-tournament/268/image/dark";
 
 // Sofascore tournament IDs for other leagues
-const VTB_TOURNAMENT_ID = 128;       // Единая лига ВТБ (basketball)
+const VTB_TOURNAMENT_ID = 1438;      // Единая лига ВТБ (basketball)
 const VOLLEY_TOURNAMENT_ID = 1009;   // Pari Суперлига (volleyball men)
 
-// Fallback season ID pairs [tournamentId, [candidateSeasonIds]]
-const VTB_FALLBACK_SEASONS = [67000, 66500, 66000, 65500, 65000, 64500, 64000, 63000, 62000, 61000, 60000];
-const VOLLEY_FALLBACK_SEASONS = [67000, 66500, 66000, 65500, 65000, 64500, 64000, 63000, 62000, 61000, 60000];
+// Sofascore season IDs: real IDs first, then wide fallback range
+const VTB_FALLBACK_SEASONS    = [80491, 75000, 73000, 71000, 69000, 67000, 65000, 63000, 61000, 59000];
+const VOLLEY_FALLBACK_SEASONS = [80000, 78000, 76000, 74000, 72000, 70000, 68000, 66000, 64000, 62000];
 
 // ── Cache ────────────────────────────────────────────────────────────────────
 interface CacheEntry { data: unknown; fetchedAt: number }
@@ -887,7 +887,8 @@ async function fetchSofascoreScheduledSport(
   const todayStr = new Date().toISOString().slice(0, 10);
   const dates: { date: string; isPast: boolean }[] = [];
 
-  for (let i = -7; i <= 3; i++) {
+  // Wide window: 21 days back + 14 days forward to cover playoff gaps
+  for (let i = -21; i <= 14; i++) {
     const d = new Date();
     d.setDate(d.getDate() + i);
     const dateStr = d.toISOString().slice(0, 10);
@@ -961,10 +962,17 @@ async function fetchSportsDBFallback(
     } catch { /* skip */ }
   }));
 
-  // Sort by date desc, return most recent 30 events
-  return (allEvents as Array<{ dateEvent: string }>)
-    .sort((a, b) => b.dateEvent.localeCompare(a.dateEvent))
-    .slice(0, 30);
+  // Sort: upcoming first (nearest), then recent past (most recent first).
+  // This prevents a future season's schedule from burying the current season.
+  const now = Date.now();
+  const typed = allEvents as Array<{ dateEvent: string; strTime?: string | null }>;
+  const withMs = typed.map((e) => {
+    const ts = new Date(`${e.dateEvent}T${e.strTime ?? "12:00:00"}`).getTime();
+    return { e, ts };
+  });
+  const upcoming = withMs.filter(x => x.ts >= now).sort((a, b) => a.ts - b.ts);
+  const past     = withMs.filter(x => x.ts <  now).sort((a, b) => b.ts - a.ts);
+  return [...upcoming.slice(0, 15), ...past.slice(0, 15)].map(x => x.e);
 }
 
 // GET /api/sports/all-matches
@@ -1180,7 +1188,10 @@ router.get("/sports/standings", async (req, res) => {
       if (result) {
         return res.json({ league: result.league, season: result.season, entries: result.entries });
       }
-      return res.json({ league: "Единая лига ВТБ", season: null, entries: [] });
+      return res.json({
+        league: "Единая лига ВТБ", season: "25/26", entries: [],
+        message: "Идут плей-офф — турнирная таблица временно недоступна",
+      });
     }
     if (sport === "volleyball") {
       const result = await fetchSofascoreLeagueStandings(
@@ -1189,7 +1200,10 @@ router.get("/sports/standings", async (req, res) => {
       if (result) {
         return res.json({ league: result.league, season: result.season, entries: result.entries });
       }
-      return res.json({ league: "Pari Суперлига", season: null, entries: [] });
+      return res.json({
+        league: "Pari Суперлига", season: "25/26", entries: [],
+        message: "Идут плей-офф — турнирная таблица временно недоступна",
+      });
     }
     return res.json({ league: null, season: null, entries: [] });
   } catch (err) {

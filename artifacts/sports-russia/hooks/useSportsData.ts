@@ -47,6 +47,7 @@ export interface StandingsData {
   entries: StandingEntry[];
   conferences?: KhlConference[];
   playoffs?: KhlPlayoffRound[];
+  message?: string;
 }
 
 function absUrl(url: string | undefined | null, base: string): string {

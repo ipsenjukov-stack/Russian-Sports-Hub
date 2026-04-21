@@ -99,6 +99,19 @@ export const TEAM_TRANSLATIONS: Record<string, string> = {
   "Parma Basket": "Парма",
   "Runa Basket Moscow": "Руна Москва",
   "Uralmash Ekaterinburg": "Уралмаш Екатеринбург",
+  // Sofascore-specific name variants
+  "Avtodor Saratov": "Автодор Саратов",
+  "MBA-MAI Moscow": "МБА Москва",
+  "UNICS Kazan": "УНИКС Казань",
+  "Pari Nizhny Novgorod": "Нижний Новгород",
+  "PBC Lokomotiv-Kuban": "Локомотив-Кубань",
+  "Zenit St. Petersburg": "Зенит Санкт-Петербург",
+  "Uralmash Yekaterinburg": "Уралмаш Екатеринбург",
+  "Yenisey Krasnoyarsk": "Енисей Красноярск",
+  "Tsmoki-Minsk": "Цмокi-Мiнск",
+  "Astana BC": "Астана",
+  "Samara": "Самара",
+  "Parma Permsky Kray": "Парма",
 
   // === Суперлига Волейбол ===
   "ASK Nizhny Novgorod": "АСК Нижний Новгород",
