@@ -153,15 +153,17 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
           <View style={styles.teamBlock}>
             <View style={styles.teamNameRow}>
               <StarButton teamName={match.homeTeam.name} sport={match.sport} />
-              <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
-                {abbreviateLongName(home.name)}
-              </Text>
+              <View>
+                <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
+                  {abbreviateLongName(home.name)}
+                </Text>
+                {home.city ? (
+                  <Text style={[styles.teamCity, { color: colors.mutedForeground }]} numberOfLines={1}>
+                    {home.city}
+                  </Text>
+                ) : null}
+              </View>
             </View>
-            {home.city ? (
-              <Text style={[styles.teamCity, { color: colors.mutedForeground }]} numberOfLines={1}>
-                {home.city}
-              </Text>
-            ) : null}
           </View>
 
           <View style={styles.scoreBlock}>
@@ -189,17 +191,19 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
           </View>
 
           <View style={[styles.teamBlock, styles.awayBlock]}>
-            <View style={[styles.teamNameRow, styles.awayNameRow]}>
-              <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
-                {abbreviateLongName(away.name)}
-              </Text>
+            <View style={styles.teamNameRow}>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
+                  {abbreviateLongName(away.name)}
+                </Text>
+                {away.city ? (
+                  <Text style={[styles.teamCity, { color: colors.mutedForeground }]} numberOfLines={1}>
+                    {away.city}
+                  </Text>
+                ) : null}
+              </View>
               <StarButton teamName={match.awayTeam.name} sport={match.sport} />
             </View>
-            {away.city ? (
-              <Text style={[styles.teamCity, { color: colors.mutedForeground }]} numberOfLines={1}>
-                {away.city}
-              </Text>
-            ) : null}
           </View>
         </View>
 
@@ -256,17 +260,14 @@ const styles = StyleSheet.create({
   liveText: { color: "#fff", fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
   statusText: { fontSize: 11, fontFamily: "Inter_400Regular" },
   matchRow: { flexDirection: "row", alignItems: "center" },
-  teamBlock: { flex: 1, alignItems: "flex-end" },
-  awayBlock: { alignItems: "flex-start" },
+  teamBlock: { flex: 1, alignItems: "flex-end", marginRight: 8 },
+  awayBlock: { alignItems: "flex-start", marginRight: 0, marginLeft: 8 },
   teamNameRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "stretch",
     gap: 5,
   },
-  awayNameRow: {
-    justifyContent: "flex-end",
-  },
-  starBtn: { padding: 1 },
+  starBtn: { justifyContent: "center", paddingHorizontal: 2 },
   teamName: { fontSize: 14, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
   teamCity: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
   scoreBlock: { width: 110, alignItems: "center" },
