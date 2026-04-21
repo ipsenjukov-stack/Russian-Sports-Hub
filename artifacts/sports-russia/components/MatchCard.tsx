@@ -195,11 +195,6 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
           </View>
         </View>
 
-        {match.venue && (
-          <Text style={[styles.venue, { color: colors.mutedForeground }]} numberOfLines={1}>
-            {match.venue}
-          </Text>
-        )}
       </View>
     </TouchableOpacity>
   );
