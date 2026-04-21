@@ -1,4 +1,5 @@
 import { Router } from "express";
+import path from "path";
 import { translateTeam, translateVenue } from "./sportsTranslations";
 
 const router = Router();
@@ -263,7 +264,7 @@ const SPORTSDB_LEAGUES = [
     sport: "volleyball",
     name: "Pari Суперлига",
     seasons: ["2024-2025", "2023-2024"],
-    badgeOverride: "https://upload.wikimedia.org/wikipedia/ru/e/ea/%D0%A1%D1%83%D0%BF%D0%B5%D1%80%D0%BB%D0%B8%D0%B3%D0%B0.jpeg",
+    badgeOverride: "/api/sports/logos/pari-superliga.png",
   },
 ];
 
@@ -418,6 +419,16 @@ router.get("/sports/proxy-image", async (req, res) => {
   } catch {
     res.status(502).end();
   }
+});
+
+// GET /api/sports/logos/:file  — serve static league logos
+router.get("/sports/logos/:file", (req, res) => {
+  const file = path.basename(req.params.file);
+  res.setHeader("Cache-Control", "public, max-age=604800");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.sendFile(path.join(__dirname, "../public/logos", file), (err) => {
+    if (err) res.status(404).end();
+  });
 });
 
 export default router;

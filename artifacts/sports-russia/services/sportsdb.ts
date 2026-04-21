@@ -93,6 +93,8 @@ export function mapEventToMatch(event: SportsDBEvent): Match {
     // ESPN logos and Wikimedia/Wikipedia images load fine directly (public CDN)
     if (url.startsWith("https://a.espncdn.com")) return url;
     if (url.includes("wikimedia.org") || url.includes("wikipedia.org")) return url;
+    // Relative paths (e.g. /logos/…) served directly from the API base
+    if (url.startsWith("/")) return `${base}${url}`;
     return `${base}/api/sports/proxy-image?url=${encodeURIComponent(url)}`;
   }
 
