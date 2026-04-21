@@ -55,10 +55,10 @@ export function mapEventToMatch(event: SportsDBEvent): Match {
   } else if (event.strStatus && UPCOMING_STATUSES.has(event.strStatus)) {
     status = "upcoming";
   } else {
-    // Infer from date + scores
+    // Infer from date + scores — use local time to avoid UTC midnight crossing
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const eventDate = new Date(event.dateEvent);
+    const eventDate = localDateFromUtc(event.dateEvent, event.strTime);
     eventDate.setHours(0, 0, 0, 0);
 
     if (
@@ -75,8 +75,7 @@ export function mapEventToMatch(event: SportsDBEvent): Match {
     }
   }
 
-  const timeStr = event.strTime ? event.strTime.slice(0, 5) : "—";
-  const dateStr = formatDateRu(event.dateEvent);
+  const { time: timeStr, date: dateStr } = utcToLocal(event.dateEvent, event.strTime);
 
   const homeScore =
     event.intHomeScore !== null && event.intHomeScore !== ""
@@ -131,30 +130,60 @@ function abbrev(name: string): string {
   return words.slice(0, 3).map((w) => w[0]).join("").toUpperCase();
 }
 
-function formatDateRu(dateStr: string): string {
-  const date = new Date(dateStr);
+function localDateFromUtc(dateStr: string, timeStr: string | null): Date {
+  if (!timeStr || timeStr.trim() === "" || timeStr === "00:00:00" || timeStr === "00:00") {
+    return new Date(`${dateStr}T12:00:00`);
+  }
+  const normalised = timeStr.length === 5 ? `${timeStr}:00` : timeStr.slice(0, 8);
+  const d = new Date(`${dateStr}T${normalised}Z`);
+  return isNaN(d.getTime()) ? new Date(`${dateStr}T12:00:00`) : d;
+}
+
+function localDateLabel(d: Date): string {
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
 
-  const norm = (d: Date) => {
-    const nd = new Date(d);
-    nd.setHours(0, 0, 0, 0);
-    return nd.getTime();
+  const normMs = (x: Date) => {
+    const n = new Date(x);
+    n.setHours(0, 0, 0, 0);
+    return n.getTime();
   };
 
-  const normDate = norm(date);
-  if (normDate === norm(today)) return "Сегодня";
-  if (normDate === norm(yesterday)) return "Вчера";
-  if (normDate === norm(tomorrow)) return "Завтра";
+  const nd = normMs(d);
+  if (nd === normMs(today)) return "Сегодня";
+  if (nd === normMs(yesterday)) return "Вчера";
+  if (nd === normMs(tomorrow)) return "Завтра";
 
   const months = [
     "янв", "фев", "мар", "апр", "май", "июн",
     "июл", "авг", "сен", "окт", "ноя", "дек",
   ];
-  return `${date.getDate()} ${months[date.getMonth()]}`;
+  return `${d.getDate()} ${months[d.getMonth()]}`;
+}
+
+function utcToLocal(dateStr: string, strTime: string | null): { time: string; date: string } {
+  if (!strTime || strTime.trim() === "" || strTime === "00:00:00" || strTime === "00:00") {
+    // No time info — parse as local date (use noon to avoid UTC midnight crossing)
+    const d = new Date(`${dateStr}T12:00:00`);
+    return { time: "—", date: localDateLabel(d) };
+  }
+  const normalised = strTime.length === 5 ? `${strTime}:00` : strTime.slice(0, 8);
+  const utcDate = new Date(`${dateStr}T${normalised}Z`);
+  if (isNaN(utcDate.getTime())) {
+    const d = new Date(`${dateStr}T12:00:00`);
+    return { time: "—", date: localDateLabel(d) };
+  }
+  const localTime = utcDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  return { time: localTime, date: localDateLabel(utcDate) };
+}
+
+function formatDateRu(dateStr: string): string {
+  // Legacy wrapper — treat bare date strings as local noon
+  const d = new Date(`${dateStr}T12:00:00`);
+  return localDateLabel(d);
 }
 
 export async function fetchAllMatches(): Promise<Match[]> {
