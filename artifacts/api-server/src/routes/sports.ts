@@ -865,12 +865,65 @@ async function fetchSofascoreScheduledSport(
   return events;
 }
 
-// ── Routes ───────────────────────────────────────────────────────────────────
+const SPORTSDB_FINISHED = new Set([
+  "Match Finished", "FT", "AP", "AET", "AOT", "Pen", "Post", "Full Time", "finished",
+]);
+
+// ── TheSportsDB fallback (used when Sofascore is IP-blocked) ─────────────────
+async function fetchSportsDBFallback(
+  leagueId: string,
+  sport: "hockey" | "basketball" | "volleyball",
+  leagueName: string,
+  leagueBadge: string,
+): Promise<unknown[]> {
+  const seasons = ["2025-2026", "2024-2025", "2023-2024"];
+  const allEvents: unknown[] = [];
+
+  await Promise.all(seasons.map(async (season) => {
+    try {
+      const url = `${THESPORTSDB_BASE}/eventsseason.php?id=${encodeURIComponent(leagueId)}&s=${encodeURIComponent(season)}`;
+      const data = (await fetchWithCache(url, undefined, CACHE_TTL_HIST_MS)) as { events?: RawEvent[] };
+      const events = data?.events ?? [];
+      for (const e of events) {
+        const loc = localizeEvent(e);
+        const dateStr = (e.dateEvent as string) ?? "";
+        const timeStr = (e.strTime as string | null) ?? null;
+        const strStatus = (e.strStatus as string | null) ?? null;
+
+        let strMappedStatus: string;
+        if (strStatus && SPORTSDB_FINISHED.has(strStatus)) {
+          strMappedStatus = "finished";
+        } else {
+          // infer from date
+          const today = new Date(); today.setHours(0, 0, 0, 0);
+          const evDate = new Date(`${dateStr}T12:00:00`);
+          evDate.setHours(0, 0, 0, 0);
+          strMappedStatus = evDate <= today ? "finished" : "upcoming";
+        }
+
+        allEvents.push({
+          ...loc,
+          _sport: sport,
+          _leagueName: leagueName,
+          _leagueBadge: leagueBadge,
+          strStatus: strMappedStatus,
+          strTime: timeStr,
+          _source: "sportsdb_fallback",
+        });
+      }
+    } catch { /* skip */ }
+  }));
+
+  // Sort by date desc, return most recent 30 events
+  return (allEvents as Array<{ dateEvent: string }>)
+    .sort((a, b) => b.dateEvent.localeCompare(a.dateEvent))
+    .slice(0, 30);
+}
 
 // GET /api/sports/all-matches
 router.get("/sports/all-matches", async (req, res) => {
   try {
-    const [rplBadge, hockeyEvents, basketballEvents, volleyballEvents] = await Promise.all([
+    const [rplBadge, hockeyEventsRaw, basketballEventsRaw, volleyballEventsRaw] = await Promise.all([
       fetchLeagueBadge(RPL_SPORTSDB_ID),
       fetchSofascoreHockey().catch(() => [] as unknown[]),
       fetchSofascoreScheduledSport(
@@ -881,6 +934,19 @@ router.get("/sports/all-matches", async (req, res) => {
         "volleyball", VOLLEY_TOURNAMENT_ID, "volleyball", "Pari Суперлига",
         SOFASCORE_VOLLEY_BADGE, volleyballSetLabel,
       ).catch(() => [] as unknown[]),
+    ]);
+
+    // Sofascore fallbacks via TheSportsDB when Sofascore is IP-blocked (dev env)
+    const [hockeyEvents, basketballEvents, volleyballEvents] = await Promise.all([
+      hockeyEventsRaw.length > 0
+        ? Promise.resolve(hockeyEventsRaw)
+        : fetchSportsDBFallback("4920", "hockey", "КХЛ", proxyImg(SOFASCORE_KHL_BADGE)).catch(() => [] as unknown[]),
+      basketballEventsRaw.length > 0
+        ? Promise.resolve(basketballEventsRaw)
+        : fetchSportsDBFallback("4476", "basketball", "Единая лига ВТБ", SOFASCORE_VTB_BADGE).catch(() => [] as unknown[]),
+      volleyballEventsRaw.length > 0
+        ? Promise.resolve(volleyballEventsRaw)
+        : fetchSportsDBFallback("4545", "volleyball", "Pari Суперлига", SOFASCORE_VOLLEY_BADGE).catch(() => [] as unknown[]),
     ]);
 
     const espnEvents = await fetchEspnFootball(rplBadge).catch(() => [] as unknown[]);
