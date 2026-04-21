@@ -36,7 +36,7 @@ export const TEAM_TRANSLATIONS: Record<string, string> = {
   "FK Rostov": "Ростов",
   "FK Rubin Kazan": "Рубин Казань",
   "Fakel Voronezh": "Факел Воронеж",
-  "Gazovik Orenburg": "Газовик Оренбург",
+  "Gazovik Orenburg": "Оренбург",
   "Khimki FK": "Химки",
   "Krasnodar": "Краснодар",
   "Krylia Sovetov": "Крылья Советов",
