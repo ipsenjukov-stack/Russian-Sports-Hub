@@ -10,7 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useFavorites } from "@/context/FavoritesContext";
 import { Match, SportType } from "@/types/sports";
-import { splitTeamName } from "@/utils/teamUtils";
+import { splitTeamName, abbreviateLongName } from "@/utils/teamUtils";
 
 const SPORT_COLORS: Record<SportType, string> = {
   football: "#2ECC71",
@@ -154,7 +154,7 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
             <View style={styles.teamNameRow}>
               <StarButton teamName={match.homeTeam.name} sport={match.sport} />
               <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
-                {home.name}
+                {abbreviateLongName(home.name)}
               </Text>
             </View>
             {home.city ? (
@@ -191,7 +191,7 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
           <View style={[styles.teamBlock, styles.awayBlock]}>
             <View style={[styles.teamNameRow, styles.awayNameRow]}>
               <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
-                {away.name}
+                {abbreviateLongName(away.name)}
               </Text>
               <StarButton teamName={match.awayTeam.name} sport={match.sport} />
             </View>

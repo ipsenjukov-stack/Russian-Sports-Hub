@@ -85,3 +85,10 @@ const TEAM_CITY_MAP: Record<string, TeamParts> = {
 export function splitTeamName(fullName: string): TeamParts {
   return TEAM_CITY_MAP[fullName] ?? { name: fullName, city: "" };
 }
+
+export function abbreviateLongName(name: string, maxLength = 11): string {
+  if (name.length <= maxLength) return name;
+  const words = name.trim().split(/\s+/);
+  if (words.length < 2) return name;
+  return words[0][0] + ". " + words.slice(1).join(" ");
+}
