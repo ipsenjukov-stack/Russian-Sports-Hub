@@ -106,7 +106,10 @@ export async function sendLocalTestNotification(): Promise<void> {
       body: `${match.home} ${match.homeScore}:${match.awayScore} ${match.away} · КХЛ`,
       sound: true,
     },
-    trigger: { seconds: 1 } as Notifications.TimeIntervalTriggerInput,
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 2,
+    },
   });
 }
 
