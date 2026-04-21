@@ -2,10 +2,8 @@ import React from "react";
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Platform,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { SportType } from "@/types/sports";
@@ -36,67 +34,62 @@ export function SportFilterBar({ selected, onSelect }: SportFilterBarProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {FILTERS.map((filter) => {
-          const isActive = selected === filter.key;
-          const activeColor = SPORT_COLORS[filter.key];
-          return (
-            <TouchableOpacity
-              key={filter.key}
-              onPress={() => onSelect(filter.key)}
-              activeOpacity={0.7}
+      {FILTERS.map((filter) => {
+        const isActive = selected === filter.key;
+        const activeColor = SPORT_COLORS[filter.key];
+        return (
+          <TouchableOpacity
+            key={filter.key}
+            onPress={() => onSelect(filter.key)}
+            activeOpacity={0.7}
+            style={[
+              styles.chip,
+              {
+                backgroundColor: isActive ? activeColor : colors.muted,
+                borderRadius: 20,
+              },
+            ]}
+          >
+            <Text style={styles.icon}>{filter.icon}</Text>
+            <Text
               style={[
-                styles.chip,
+                styles.label,
                 {
-                  backgroundColor: isActive ? activeColor : colors.muted,
-                  borderRadius: 20,
+                  color: isActive ? "#fff" : colors.mutedForeground,
+                  fontFamily: isActive ? "Inter_600SemiBold" : "Inter_500Medium",
                 },
               ]}
+              numberOfLines={1}
             >
-              <Text style={styles.icon}>{filter.icon}</Text>
-              <Text
-                style={[
-                  styles.label,
-                  {
-                    color: isActive ? "#fff" : colors.mutedForeground,
-                    fontFamily: isActive ? "Inter_600SemiBold" : "Inter_500Medium",
-                  },
-                ]}
-              >
-                {filter.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+              {filter.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flexDirection: "row",
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    gap: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
-  },
   chip: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
+    justifyContent: "center",
     paddingVertical: 8,
-    gap: 5,
+    gap: 4,
   },
   icon: {
-    fontSize: 14,
+    fontSize: 13,
   },
   label: {
-    fontSize: 13,
+    fontSize: 12,
   },
 });
