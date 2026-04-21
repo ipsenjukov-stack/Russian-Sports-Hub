@@ -119,7 +119,7 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
             </View>
           )}
           {isFinished && (
-            <Text style={[styles.statusText, { color: colors.mutedForeground }]}>Завершён</Text>
+            <Text style={[styles.statusText, { color: colors.mutedForeground }]}>Завершён · {match.date}</Text>
           )}
           {isUpcoming && (
             <Text style={[styles.statusText, { color: colors.mutedForeground }]}>{match.startTime} · {match.date}</Text>
