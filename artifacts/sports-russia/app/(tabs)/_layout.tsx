@@ -23,6 +23,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "list.number", selected: "list.number" }} />
         <Label>Таблицы</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="favorites">
+        <Icon sf={{ default: "star", selected: "star.fill" }} />
+        <Label>Избранное</Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -106,6 +110,18 @@ function ClassicTabLayout() {
               <SymbolView name="list.number" tintColor={color} size={24} />
             ) : (
               <MaterialCommunityIcons name="table" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="favorites"
+        options={{
+          title: "Избранное",
+          tabBarIcon: ({ color, focused }) =>
+            isIOS ? (
+              <SymbolView name={focused ? "star.fill" : "star"} tintColor={color} size={24} />
+            ) : (
+              <Ionicons name={focused ? "star" : "star-outline"} size={22} color={color} />
             ),
         }}
       />

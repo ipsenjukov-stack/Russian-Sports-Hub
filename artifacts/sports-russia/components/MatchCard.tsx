@@ -6,7 +6,9 @@ import {
   TouchableOpacity,
   Image,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { useFavorites } from "@/context/FavoritesContext";
 import { Match, SportType } from "@/types/sports";
 import { splitTeamName } from "@/utils/teamUtils";
 
@@ -36,7 +38,6 @@ function TeamLogo({ uri, name, size = 32 }: { uri?: string; name: string; size?:
     );
   }
 
-  // Fallback: initials circle
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
@@ -46,15 +47,8 @@ function TeamLogo({ uri, name, size = 32 }: { uri?: string; name: string; size?:
     .toUpperCase();
 
   return (
-    <View
-      style={[
-        styles.logoFallback,
-        { width: size, height: size, borderRadius: size / 2 },
-      ]}
-    >
-      <Text style={[styles.logoFallbackText, { fontSize: size * 0.35 }]}>
-        {initials}
-      </Text>
+    <View style={[styles.logoFallback, { width: size, height: size, borderRadius: size / 2 }]}>
+      <Text style={[styles.logoFallbackText, { fontSize: size * 0.35 }]}>{initials}</Text>
     </View>
   );
 }
@@ -63,26 +57,32 @@ function LeagueLogo({ uri, size = 28 }: { uri?: string; size?: number }) {
   const [error, setError] = React.useState(false);
 
   return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-      }}
-    >
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
       {uri && !error ? (
-        <Image
-          source={{ uri }}
-          style={{ width: size, height: size }}
-          resizeMode="contain"
-          onError={() => setError(true)}
-        />
+        <Image source={{ uri }} style={{ width: size, height: size }} resizeMode="contain" onError={() => setError(true)} />
       ) : (
         <Text style={{ fontSize: size * 0.6, lineHeight: size + 2 }}>🏆</Text>
       )}
     </View>
+  );
+}
+
+function StarButton({ teamName }: { teamName: string }) {
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const starred = isFavorite(teamName);
+  return (
+    <TouchableOpacity
+      onPress={() => toggleFavorite(teamName)}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      activeOpacity={0.7}
+      style={styles.starBtn}
+    >
+      <Ionicons
+        name={starred ? "star" : "star-outline"}
+        size={15}
+        color={starred ? "#F5A623" : "#AAAAAA"}
+      />
+    </TouchableOpacity>
   );
 }
 
@@ -128,9 +128,12 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
 
         <View style={styles.matchRow}>
           <View style={styles.teamBlock}>
-            <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
-              {home.name}
-            </Text>
+            <View style={styles.teamNameRow}>
+              <StarButton teamName={match.homeTeam.name} />
+              <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
+                {home.name}
+              </Text>
+            </View>
             {home.city ? (
               <Text style={[styles.teamCity, { color: colors.mutedForeground }]} numberOfLines={1}>
                 {home.city}
@@ -163,9 +166,12 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
           </View>
 
           <View style={[styles.teamBlock, styles.awayBlock]}>
-            <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
-              {away.name}
-            </Text>
+            <View style={[styles.teamNameRow, styles.awayNameRow]}>
+              <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
+                {away.name}
+              </Text>
+              <StarButton teamName={match.awayTeam.name} />
+            </View>
             {away.city ? (
               <Text style={[styles.teamCity, { color: colors.mutedForeground }]} numberOfLines={1}>
                 {away.city}
@@ -197,14 +203,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  sportBar: {
-    width: 4,
-  },
-  content: {
-    flex: 1,
-    padding: 12,
-    gap: 8,
-  },
+  sportBar: { width: 4 },
+  content: { flex: 1, padding: 12, gap: 8 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -217,11 +217,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
-  league: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-    flex: 1,
-  },
+  league: { fontSize: 11, fontFamily: "Inter_500Medium", flex: 1 },
   liveBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -230,79 +226,32 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     gap: 4,
   },
-  liveDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: "#fff",
-  },
-  liveText: {
-    color: "#fff",
-    fontSize: 10,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.5,
-  },
-  statusText: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-  },
-  matchRow: {
+  liveDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#fff" },
+  liveText: { color: "#fff", fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  statusText: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  matchRow: { flexDirection: "row", alignItems: "center" },
+  teamBlock: { flex: 1 },
+  awayBlock: { alignItems: "flex-end" },
+  teamNameRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 5,
   },
-  teamBlock: {
-    flex: 1,
+  awayNameRow: {
+    justifyContent: "flex-end",
   },
-  awayBlock: {
-    alignItems: "flex-end",
+  starBtn: {
+    padding: 1,
   },
-  teamName: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-  },
-  teamCity: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
-  },
-  scoreBlock: {
-    width: 110,
-    alignItems: "center",
-  },
-  scoreRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  scoreCenter: {
-    alignItems: "center",
-    minWidth: 46,
-  },
-  score: {
-    fontSize: 20,
-    fontFamily: "Inter_700Bold",
-  },
-  vsText: {
-    fontSize: 16,
-    fontFamily: "Inter_500Medium",
-  },
-  period: {
-    fontSize: 10,
-    fontFamily: "Inter_600SemiBold",
-    marginTop: 1,
-  },
-  venue: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
-  },
-  logoFallback: {
-    backgroundColor: "#E8E8E8",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoFallbackText: {
-    color: "#888",
-    fontFamily: "Inter_700Bold",
-  },
+  teamName: { fontSize: 14, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
+  teamCity: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
+  scoreBlock: { width: 110, alignItems: "center" },
+  scoreRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  scoreCenter: { alignItems: "center", minWidth: 46 },
+  score: { fontSize: 20, fontFamily: "Inter_700Bold" },
+  vsText: { fontSize: 16, fontFamily: "Inter_500Medium" },
+  period: { fontSize: 10, fontFamily: "Inter_600SemiBold", marginTop: 1 },
+  venue: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
+  logoFallback: { backgroundColor: "#E8E8E8", alignItems: "center", justifyContent: "center" },
+  logoFallbackText: { color: "#888", fontFamily: "Inter_700Bold" },
 });
