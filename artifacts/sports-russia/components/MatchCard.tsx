@@ -106,17 +106,6 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
   const home = splitTeamName(match.homeTeam.name);
   const away = splitTeamName(match.awayTeam.name);
 
-  const showScore = isLive || isFinished;
-  const homeScoreNum = match.homeScore ?? 0;
-  const awayScoreNum = match.awayScore ?? 0;
-  const homeWins = isFinished && homeScoreNum > awayScoreNum;
-  const awayWins = isFinished && awayScoreNum > homeScoreNum;
-  const homeDim = isFinished && !homeWins && homeScoreNum !== awayScoreNum;
-  const awayDim = isFinished && !awayWins && homeScoreNum !== awayScoreNum;
-  const periodFooter = isLive
-    ? (match.period || (match.minute ? `${match.minute}'` : null))
-    : null;
-
   return (
     <TouchableOpacity
       activeOpacity={0.85}
@@ -156,54 +145,62 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
             <Text style={[styles.statusText, { color: colors.mutedForeground }]}>Завершён · {match.date}</Text>
           )}
           {isUpcoming && !isStartingSoon && !isJustStarted && (
-            <Text style={[styles.statusText, { color: colors.mutedForeground }]}>{match.date}</Text>
+            <Text style={[styles.statusText, { color: colors.mutedForeground }]}>{match.startTime} · {match.date}</Text>
           )}
         </View>
 
-        <View style={styles.matchBody}>
-          {/* Home team row */}
-          <View style={styles.teamRow}>
-            <StarButton teamName={match.homeTeam.name} sport={match.sport} />
-            <TeamLogo uri={match.homeTeam.logo || undefined} name={home.name} size={28} />
-            <Text style={[styles.teamNameNew, { color: colors.foreground }]} numberOfLines={1}>
-              {match.homeTeam.name}
-            </Text>
-            <Text style={[
-              styles.scoreNum,
-              { color: homeDim ? colors.mutedForeground : colors.foreground,
-                fontFamily: homeWins ? "Inter_700Bold" : "Inter_500Medium",
-                opacity: showScore ? 1 : 0 },
-            ]}>
-              {showScore ? String(match.homeScore ?? 0) : "0"}
-            </Text>
+        <View style={styles.matchRow}>
+          <View style={styles.teamBlock}>
+            <View style={styles.teamNameRow}>
+              <StarButton teamName={match.homeTeam.name} sport={match.sport} />
+              <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
+                {home.name}
+              </Text>
+            </View>
+            {home.city ? (
+              <Text style={[styles.teamCity, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {home.city}
+              </Text>
+            ) : null}
           </View>
 
-          {/* Away team row */}
-          <View style={styles.teamRow}>
-            <StarButton teamName={match.awayTeam.name} sport={match.sport} />
-            <TeamLogo uri={match.awayTeam.logo || undefined} name={away.name} size={28} />
-            <Text style={[styles.teamNameNew, { color: colors.foreground }]} numberOfLines={1}>
-              {match.awayTeam.name}
-            </Text>
-            <Text style={[
-              styles.scoreNum,
-              { color: awayDim ? colors.mutedForeground : colors.foreground,
-                fontFamily: awayWins ? "Inter_700Bold" : "Inter_500Medium",
-                opacity: showScore ? 1 : 0 },
-            ]}>
-              {showScore ? String(match.awayScore ?? 0) : "0"}
-            </Text>
+          <View style={styles.scoreBlock}>
+            <View style={styles.scoreRow}>
+              <TeamLogo uri={match.homeTeam.logo || undefined} name={home.name} size={28} />
+              <View style={styles.scoreCenter}>
+                {isLive || isFinished ? (
+                  <>
+                    <Text style={[styles.score, { color: colors.foreground }]}>
+                      {match.homeScore} : {match.awayScore}
+                    </Text>
+                    {isLive && match.period && (
+                      <Text style={[styles.period, { color: colors.live }]}>{match.period}</Text>
+                    )}
+                    {isLive && match.minute && !match.period && (
+                      <Text style={[styles.period, { color: colors.live }]}>{match.minute}'</Text>
+                    )}
+                  </>
+                ) : (
+                  <Text style={[styles.vsText, { color: colors.mutedForeground }]}>vs</Text>
+                )}
+              </View>
+              <TeamLogo uri={match.awayTeam.logo || undefined} name={away.name} size={28} />
+            </View>
           </View>
 
-          {/* Live period / upcoming time footer */}
-          {periodFooter && (
-            <Text style={[styles.periodFooterText, { color: colors.live }]}>{periodFooter}</Text>
-          )}
-          {isUpcoming && !isStartingSoon && !isJustStarted && match.startTime && (
-            <Text style={[styles.periodFooterText, { color: colors.mutedForeground }]}>
-              {match.startTime}
-            </Text>
-          )}
+          <View style={[styles.teamBlock, styles.awayBlock]}>
+            <View style={[styles.teamNameRow, styles.awayNameRow]}>
+              <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
+                {away.name}
+              </Text>
+              <StarButton teamName={match.awayTeam.name} sport={match.sport} />
+            </View>
+            {away.city ? (
+              <Text style={[styles.teamCity, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {away.city}
+              </Text>
+            ) : null}
+          </View>
         </View>
 
       </View>
@@ -258,29 +255,26 @@ const styles = StyleSheet.create({
   liveDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#fff" },
   liveText: { color: "#fff", fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
   statusText: { fontSize: 11, fontFamily: "Inter_400Regular" },
-  starBtn: { padding: 1 },
-  matchBody: { gap: 7 },
-  teamRow: {
+  matchRow: { flexDirection: "row", alignItems: "center" },
+  teamBlock: { flex: 1 },
+  awayBlock: { alignItems: "flex-end" },
+  teamNameRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 5,
   },
-  teamNameNew: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
+  awayNameRow: {
+    justifyContent: "flex-end",
   },
-  scoreNum: {
-    fontSize: 18,
-    minWidth: 22,
-    textAlign: "right",
-  },
-  periodFooterText: {
-    fontSize: 11,
-    fontFamily: "Inter_500Medium",
-    textAlign: "center",
-    marginTop: 2,
-  },
+  starBtn: { padding: 1 },
+  teamName: { fontSize: 14, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
+  teamCity: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
+  scoreBlock: { width: 110, alignItems: "center" },
+  scoreRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  scoreCenter: { alignItems: "center", minWidth: 46 },
+  score: { fontSize: 20, fontFamily: "Inter_700Bold" },
+  vsText: { fontSize: 16, fontFamily: "Inter_500Medium" },
+  period: { fontSize: 10, fontFamily: "Inter_600SemiBold", marginTop: 1 },
   logoFallback: { backgroundColor: "#E8E8E8", alignItems: "center", justifyContent: "center" },
   logoFallbackText: { color: "#888", fontFamily: "Inter_700Bold" },
 });
