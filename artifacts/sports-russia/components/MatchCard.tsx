@@ -260,8 +260,8 @@ const styles = StyleSheet.create({
   liveText: { color: "#fff", fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
   statusText: { fontSize: 11, fontFamily: "Inter_400Regular" },
   matchRow: { flexDirection: "row", alignItems: "center" },
-  teamBlock: { flex: 1, alignItems: "flex-end", marginRight: 8 },
-  awayBlock: { alignItems: "flex-start", marginRight: 0, marginLeft: 8 },
+  teamBlock: { flex: 1, alignItems: "flex-start", marginRight: 8 },
+  awayBlock: { alignItems: "flex-end", marginRight: 0, marginLeft: 8 },
   teamNameRow: {
     flexDirection: "row",
     alignItems: "stretch",
