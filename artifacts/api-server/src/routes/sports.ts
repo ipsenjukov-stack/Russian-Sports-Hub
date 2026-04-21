@@ -748,49 +748,121 @@ function localizeEvent(e: RawEvent): RawEvent {
   };
 }
 
-const SPORTSDB_LEAGUES = [
-  { id: "4476", sport: "basketball", name: "Единая лига ВТБ", seasons: ["2024-2025", "2023-2024"], badgeOverride: "" },
-  {
-    id: "4545",
-    sport: "volleyball",
-    name: "Pari Суперлига",
-    seasons: ["2024-2025", "2023-2024"],
-    badgeOverride: "/api/sports/logos/pari-superliga.png",
-  },
-];
-
 // TheSportsDB league ID for Russian Premier League (for badge only) — ID 4355
 const RPL_SPORTSDB_ID = "4355";
 
-async function fetchSportsDBEvents(): Promise<unknown[]> {
-  const allEvents: unknown[] = [];
-  await Promise.all(
-    SPORTSDB_LEAGUES.flatMap((league) =>
-      league.seasons.map(async (season) => {
-        try {
-          const [events, badge] = await Promise.all([
-            (async () => {
-              const url = `${THESPORTSDB_BASE}/eventsseason.php?id=${encodeURIComponent(league.id)}&s=${encodeURIComponent(season)}`;
-              const data = (await fetchWithCache(url)) as { events?: RawEvent[] };
-              return data?.events ?? [];
-            })(),
-            league.badgeOverride ? Promise.resolve(league.badgeOverride) : fetchLeagueBadge(league.id),
-          ]);
-          const mapped = events.map((e) => ({
-            ...localizeEvent(e),
-            _sport: league.sport,
-            _leagueName: league.name,
-            _leagueBadge: badge,
-            _source: "sportsdb",
-          }));
-          allEvents.push(...mapped);
-        } catch {
-          // Skip failed leagues silently
-        }
-      })
-    )
-  );
-  return allEvents;
+// ── Sofascore basketball (ВТБ) helpers ───────────────────────────────────────
+const SOFASCORE_VTB_BADGE = proxyImg(`https://api.sofascore.app/api/v1/unique-tournament/${VTB_TOURNAMENT_ID}/image/dark`);
+const SOFASCORE_VOLLEY_BADGE = "/api/sports/logos/pari-superliga.png";
+
+function basketballPeriodLabel(code: number, description: string): string | undefined {
+  const d = (description ?? "").toLowerCase();
+  if (code === 7  || d.includes("1st quarter")) return "1-я четверть";
+  if (code === 27 || d.includes("2nd quarter")) return "2-я четверть";
+  if (code === 8  || d.includes("halftime"))    return "Перерыв";
+  if (code === 9  || d.includes("3rd quarter")) return "3-я четверть";
+  if (code === 10 || d.includes("4th quarter")) return "4-я четверть";
+  if (code === 11 || d.includes("overtime") || d.includes(" ot")) return "ОТ";
+  if (d.includes("pause") || d.includes("break")) return "Перерыв";
+  return undefined;
+}
+
+function volleyballSetLabel(code: number, description: string): string | undefined {
+  const d = (description ?? "").toLowerCase();
+  if (d.includes("1st set")) return "1-я партия";
+  if (d.includes("2nd set")) return "2-я партия";
+  if (d.includes("3rd set")) return "3-я партия";
+  if (d.includes("4th set")) return "4-я партия";
+  if (d.includes("5th set") || d.includes("golden set")) return "5-я партия";
+  if (d.includes("pause") || d.includes("break")) return "Перерыв";
+  if (code >= 6 && code <= 15) return `${code - 5}-я партия`;
+  return undefined;
+}
+
+function mapSofascoreScheduledEvent(
+  e: SofascoreEvent,
+  sport: "basketball" | "volleyball",
+  leagueName: string,
+  leagueBadge: string,
+  periodLabelFn: (code: number, description: string) => string | undefined,
+): Record<string, unknown> {
+  const statusType = (e.status?.type ?? "notstarted").toLowerCase();
+  const statusMap: Record<string, string> = {
+    notstarted: "upcoming",
+    inprogress: "live",
+    finished: "finished",
+    ended: "finished",
+    canceled: "finished",
+    postponed: "finished",
+  };
+  const mappedStatus = statusMap[statusType] ?? "upcoming";
+  const d = new Date(e.startTimestamp * 1000);
+  const homeName = translateTeam(e.homeTeam.name);
+  const awayName = translateTeam(e.awayTeam.name);
+
+  const isStarted = mappedStatus !== "upcoming";
+  const homeScoreStr = isStarted ? String(e.homeScore?.current ?? 0) : null;
+  const awayScoreStr = isStarted ? String(e.awayScore?.current ?? 0) : null;
+
+  const periodLabel = mappedStatus === "live"
+    ? periodLabelFn(e.status.code, e.status.description)
+    : undefined;
+
+  return {
+    idEvent: `sofascore_${e.id}`,
+    strHomeTeam: homeName,
+    strAwayTeam: awayName,
+    strHomeTeamBadge: `https://api.sofascore.app/api/v1/team/${e.homeTeam.id}/image`,
+    strAwayTeamBadge: `https://api.sofascore.app/api/v1/team/${e.awayTeam.id}/image`,
+    intHomeScore: homeScoreStr,
+    intAwayScore: awayScoreStr,
+    dateEvent: d.toISOString().slice(0, 10),
+    strTime: d.toISOString().slice(11, 16),
+    strStatus: mappedStatus,
+    strVenue: null,
+    _sport: sport,
+    _leagueName: leagueName,
+    _leagueBadge: leagueBadge,
+    _periodLabel: periodLabel,
+    _source: "sofascore",
+  };
+}
+
+async function fetchSofascoreScheduledSport(
+  sportPath: string,
+  tournamentId: number,
+  sport: "basketball" | "volleyball",
+  leagueName: string,
+  leagueBadge: string,
+  periodLabelFn: (code: number, description: string) => string | undefined,
+): Promise<unknown[]> {
+  const events: unknown[] = [];
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const dates: { date: string; isPast: boolean }[] = [];
+
+  for (let i = -7; i <= 3; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().slice(0, 10);
+    dates.push({ date: dateStr, isPast: dateStr < todayStr });
+  }
+
+  const tasks = dates.map(({ date, isPast }) => async () => {
+    try {
+      const url = `https://api.sofascore.app/api/v1/sport/${sportPath}/scheduled-events/${date}`;
+      const ttl = isPast ? CACHE_TTL_HIST_MS : CACHE_TTL_MS;
+      const data = await fetchWithCache(url, SOFASCORE_HEADERS, ttl) as { events?: SofascoreEvent[] };
+      const filtered = (data.events ?? []).filter(
+        (e) => e.tournament?.uniqueTournament?.id === tournamentId,
+      );
+      events.push(...filtered.map((e) => mapSofascoreScheduledEvent(e, sport, leagueName, leagueBadge, periodLabelFn)));
+    } catch {
+      // skip failed dates
+    }
+  });
+
+  await pLimit(tasks, 3);
+  return events;
 }
 
 // ── Routes ───────────────────────────────────────────────────────────────────
@@ -798,15 +870,22 @@ async function fetchSportsDBEvents(): Promise<unknown[]> {
 // GET /api/sports/all-matches
 router.get("/sports/all-matches", async (req, res) => {
   try {
-    const [rplBadge, sportsdbEvents, hockeyEvents] = await Promise.all([
+    const [rplBadge, hockeyEvents, basketballEvents, volleyballEvents] = await Promise.all([
       fetchLeagueBadge(RPL_SPORTSDB_ID),
-      fetchSportsDBEvents(),
       fetchSofascoreHockey().catch(() => [] as unknown[]),
+      fetchSofascoreScheduledSport(
+        "basketball", VTB_TOURNAMENT_ID, "basketball", "Единая лига ВТБ",
+        SOFASCORE_VTB_BADGE, basketballPeriodLabel,
+      ).catch(() => [] as unknown[]),
+      fetchSofascoreScheduledSport(
+        "volleyball", VOLLEY_TOURNAMENT_ID, "volleyball", "Pari Суперлига",
+        SOFASCORE_VOLLEY_BADGE, volleyballSetLabel,
+      ).catch(() => [] as unknown[]),
     ]);
 
     const espnEvents = await fetchEspnFootball(rplBadge).catch(() => [] as unknown[]);
 
-    const allEvents = [...espnEvents, ...sportsdbEvents, ...hockeyEvents];
+    const allEvents = [...espnEvents, ...hockeyEvents, ...basketballEvents, ...volleyballEvents];
 
     // Deduplicate by idEvent
     const seen = new Set<string>();

@@ -61,8 +61,8 @@ TheSportsDB serves mostly-transparent PNG badges for КХЛ (97-99%), Едина
   - Team logos: `https://api.sofascore.app/api/v1/team/{id}/image` (via proxy with Sofascore headers)
   - League badge: `https://api.sofascore.app/api/v1/unique-tournament/268/image/dark`
   - Period labels: Russian (1-й период, 2-й период, 3-й период, ОТ, Б/У)
-- **Единая лига ВТБ** (basketball): TheSportsDB (ID: 4476)
-- **Pari Суперлига** (volleyball): TheSportsDB (ID: 4545)
+- **Единая лига ВТБ** (basketball): Sofascore — `/api/v1/sport/basketball/scheduled-events/{date}`, tournament ID 128, -7/+3 days window, same logic as КХЛ
+- **Pari Суперлига** (volleyball): Sofascore — `/api/v1/sport/volleyball/scheduled-events/{date}`, tournament ID 1009, -7/+3 days window, same logic as КХЛ
 - **Translations**: `sportsTranslations.ts` (team names, venues → Russian)
   - КХЛ short names added (e.g. "Traktor" → "Трактор Челябинск", "SKA" → "СКА Санкт-Петербург")
 
