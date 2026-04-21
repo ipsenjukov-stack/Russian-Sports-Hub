@@ -194,6 +194,11 @@ function loadKhlPersistentCache(): KhlPersistentCache | null {
     // Standings cache valid for 7 days (regular season is final for months)
     const maxAge = 7 * 24 * 60 * 60 * 1000;
     if (Date.now() - data.savedAt > maxAge) return null;
+    // Re-apply translations in case the table was updated since the cache was saved
+    data.conferences = data.conferences.map((conf) => ({
+      ...conf,
+      rows: conf.rows.map((row) => ({ ...row, team: translateTeam(row.team) })),
+    }));
     return data;
   } catch { return null; }
 }
