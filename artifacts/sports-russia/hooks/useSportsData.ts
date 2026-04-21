@@ -49,11 +49,32 @@ export interface StandingsData {
   playoffs?: KhlPlayoffRound[];
 }
 
+function absUrl(url: string | undefined | null, base: string): string {
+  if (!url) return "";
+  if (url.startsWith("http")) return url;
+  if (url.startsWith("/")) return `${base}${url}`;
+  return url;
+}
+
 async function fetchStandings(sport: string): Promise<StandingsData> {
   const base = getApiBase();
   const res = await fetch(`${base}/api/sports/standings?sport=${sport}`);
   if (!res.ok) throw new Error("standings fetch failed");
-  return res.json() as Promise<StandingsData>;
+  const data = await res.json() as StandingsData;
+
+  // On native, Image requires absolute URLs — prefix all relative badge paths
+  if (base) {
+    data.entries?.forEach(e => { e.badge = absUrl(e.badge, base); });
+    data.conferences?.forEach(c => c.rows?.forEach(r => { r.badge = absUrl(r.badge, base); }));
+    data.playoffs?.forEach(round =>
+      round.series?.forEach(s => {
+        s.homeBadge = absUrl(s.homeBadge, base);
+        s.awayBadge = absUrl(s.awayBadge, base);
+      })
+    );
+  }
+
+  return data;
 }
 
 export function useStandings(sport: string) {
