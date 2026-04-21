@@ -9,6 +9,8 @@ export interface NotifPrefs {
   onMatchStart: boolean;
   onMatchEvent: boolean;
   onMatchEnd: boolean;
+  sound: "default" | "silent";
+  vibration: boolean;
 }
 
 export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
@@ -16,6 +18,8 @@ export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
   onMatchStart: true,
   onMatchEvent: true,
   onMatchEnd: true,
+  sound: "default",
+  vibration: true,
 };
 
 function getApiBase(): string {
@@ -25,10 +29,16 @@ function getApiBase(): string {
   return "";
 }
 
+let _currentPrefs: NotifPrefs = DEFAULT_NOTIF_PREFS;
+
+export function setActivePrefs(prefs: NotifPrefs) {
+  _currentPrefs = prefs;
+}
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
-    shouldPlaySound: true,
+    shouldPlaySound: _currentPrefs.sound !== "silent",
     shouldSetBadge: false,
     shouldShowBanner: true,
     shouldShowList: true,
@@ -120,12 +130,15 @@ export async function scheduleMatchReminders(
       `${prefs.hoursBefore} часов`;
 
     const reminderTime = ts - prefs.hoursBefore * 60 * 60 * 1000;
+    const playSound = prefs.sound !== "silent";
+
     if (reminderTime > now) {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: `Матч через ${hourLabel} ⏰`,
           body: label,
-          sound: true,
+          sound: playSound,
+          ...(Platform.OS === "android" && { channelId: "sports-russia" }),
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -139,7 +152,8 @@ export async function scheduleMatchReminders(
         content: {
           title: "Матч начинается! 🏁",
           body: label,
-          sound: true,
+          sound: playSound,
+          ...(Platform.OS === "android" && { channelId: "sports-russia" }),
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -150,12 +164,13 @@ export async function scheduleMatchReminders(
   }
 }
 
-export async function setupAndroidChannel(): Promise<void> {
+export async function setupAndroidChannel(vibration = true): Promise<void> {
   if (Platform.OS !== "android") return;
   await Notifications.setNotificationChannelAsync("sports-russia", {
     name: "Спорт России",
     importance: Notifications.AndroidImportance.HIGH,
-    vibrationPattern: [0, 250, 250, 250],
+    vibrationPattern: vibration ? [0, 250, 250, 250] : [],
     lightColor: "#CC0000",
+    sound: "default",
   });
 }

@@ -24,6 +24,8 @@ import {
   getExpoPushToken,
   registerWithBackend,
   unregisterFromBackend,
+  setActivePrefs,
+  setupAndroidChannel,
   NotifPrefs,
   DEFAULT_NOTIF_PREFS,
 } from "@/services/pushNotifications";
@@ -76,7 +78,13 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
       if (val === "true") setNotifStatus("active");
     });
     AsyncStorage.getItem(NOTIF_PREFS_KEY).then((raw) => {
-      if (raw) { try { setPrefs({ ...DEFAULT_NOTIF_PREFS, ...JSON.parse(raw) }); } catch {} }
+      if (raw) {
+        try {
+          const loaded = { ...DEFAULT_NOTIF_PREFS, ...JSON.parse(raw) };
+          setPrefs(loaded);
+          setActivePrefs(loaded);
+        } catch {}
+      }
     });
   }, []);
 
@@ -98,6 +106,10 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
     const updated = { ...prefs, [key]: value };
     setPrefs(updated);
     AsyncStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(updated));
+    setActivePrefs(updated);
+    if (key === "vibration") {
+      setupAndroidChannel(updated.vibration).catch(() => {});
+    }
   }
 
   const toggleNotif = useCallback(async (val: boolean) => {
@@ -380,6 +392,69 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                     />
                   </View>
 
+                  <View style={[styles.prefDivider, { backgroundColor: colors.border }]} />
+
+                  {/* Sound */}
+                  <View style={styles.prefRow}>
+                    <View style={styles.prefTextCol}>
+                      <Text style={[styles.prefLabel, { color: colors.foreground }]}>Звук</Text>
+                      <Text style={[styles.prefSub, { color: colors.mutedForeground }]}>
+                        {prefs.sound === "default" ? "Стандартный системный" : "Беззвучно"}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.soundRow}>
+                    {(["default", "silent"] as const).map((opt) => {
+                      const active = prefs.sound === opt;
+                      return (
+                        <TouchableOpacity
+                          key={opt}
+                          onPress={() => updatePref("sound", opt)}
+                          style={[
+                            styles.soundPill,
+                            {
+                              backgroundColor: active ? colors.primary : colors.background,
+                              borderColor: active ? colors.primary : colors.border,
+                            },
+                          ]}
+                          activeOpacity={0.75}
+                        >
+                          <Ionicons
+                            name={opt === "default" ? "volume-high-outline" : "volume-mute-outline"}
+                            size={15}
+                            color={active ? "#fff" : colors.mutedForeground}
+                          />
+                          <Text style={[
+                            styles.soundPillText,
+                            { color: active ? "#fff" : colors.mutedForeground, fontFamily: active ? "Inter_600SemiBold" : "Inter_400Regular" }
+                          ]}>
+                            {opt === "default" ? "Стандартный" : "Без звука"}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <View style={[styles.prefDivider, { backgroundColor: colors.border }]} />
+
+                  {/* Vibration */}
+                  <View style={styles.prefRow}>
+                    <View style={styles.prefTextCol}>
+                      <Text style={[styles.prefLabel, { color: colors.foreground }]}>Вибрация</Text>
+                      <Text style={[styles.prefSub, { color: colors.mutedForeground }]}>
+                        {Platform.OS === "ios" ? "Управляется системой iOS" : prefs.vibration ? "Включена" : "Выключена"}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={prefs.vibration}
+                      onValueChange={(v) => updatePref("vibration", v)}
+                      disabled={Platform.OS === "ios"}
+                      trackColor={{ false: colors.border, true: colors.primary }}
+                      thumbColor="#fff"
+                      ios_backgroundColor={colors.border}
+                    />
+                  </View>
+
                 </View>
               )}
 
@@ -567,6 +642,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   hourPillText: {
+    fontSize: 13,
+  },
+  soundRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+  },
+  soundPill: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  soundPillText: {
     fontSize: 13,
   },
 });
