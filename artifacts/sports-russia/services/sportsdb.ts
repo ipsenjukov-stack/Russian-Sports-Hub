@@ -91,8 +91,9 @@ export function mapEventToMatch(event: SportsDBEvent): Match {
 
   function toProxied(url: string | null | undefined): string {
     if (!url) return "";
-    // ESPN logos (a.espncdn.com) load fine directly; TheSportsDB needs proxying
+    // ESPN logos and Wikimedia/Wikipedia images load fine directly (public CDN)
     if (url.startsWith("https://a.espncdn.com")) return url;
+    if (url.includes("wikimedia.org") || url.includes("wikipedia.org")) return url;
     return `${base}/api/sports/proxy-image?url=${encodeURIComponent(url)}`;
   }
 

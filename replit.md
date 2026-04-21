@@ -25,3 +25,23 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+
+## Спорт России App Notes
+
+### Badge Fix System (`artifacts/api-server/src/routes/sports.ts`)
+TheSportsDB serves mostly-transparent PNG badges for КХЛ (97-99%), Единая лига ВТБ (~99%), and Суперлига волейбол (~94-100%) teams. Fixed via `BADGE_FIXES` map:
+- **Key**: filename stem from TheSportsDB badge URL (e.g. `27hsew1615576097`)
+- **Value**: correct Wikipedia/Wikimedia Commons URL
+- **Function**: `fixBadge(badge)` — replaces transparent badge with Wikipedia URL
+- Covers all 24 КХЛ teams (2024-25 and 2025-26 seasons), major basketball/volleyball clubs
+- Teams without Wikipedia images fall back to initials display in MatchCard
+
+### Image Loading
+- **Football (РПЛ)**: ESPN CDN direct — no proxy needed
+- **Wikipedia/Wikimedia**: direct URL (CDN, no proxy needed) — bypass logic in `sportsdb.ts`
+- **TheSportsDB**: proxied via `/api/sports/proxy-image` endpoint
+
+### Data Sources
+- РПЛ football: ESPN API
+- КХЛ, Единая лига ВТБ, Суперлига волейбол: TheSportsDB API
+- Translations: `sportsTranslations.ts` (team names, venues → Russian)
