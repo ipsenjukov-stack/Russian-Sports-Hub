@@ -1035,40 +1035,61 @@ router.get("/sports/season-events", async (req, res) => {
 });
 
 // Demo KHL playoff bracket used in dev when Sofascore is unreachable
+function sfBadge(teamId: number) {
+  return `/api/sports/proxy-image?url=${encodeURIComponent(`https://api.sofascore.app/api/v1/team/${teamId}/image`)}`;
+}
+const B = {
+  tska:     sfBadge(3946),
+  sever:    sfBadge(3943),
+  avangard: sfBadge(3945),
+  traktor:  sfBadge(6333),
+  ska:      sfBadge(3941),
+  dinamo_mn:sfBadge(24983),
+  metallurg:sfBadge(3938),
+  torpedo:  sfBadge(7857),
+  akbars:   sfBadge(3947),
+  salavat:  sfBadge(3944),
+  loko:     sfBadge(3948),
+  neftekhim:sfBadge(3951),
+  dinamo_m: sfBadge(43854),
+  amur:     sfBadge(3950),
+  barys:    sfBadge(24985),
+  kunlun:   sfBadge(136234),
+};
 const KHL_DEMO_BRACKET = [
   {
     name: "1/8 финала",
     series: [
-      { homeTeam: "ЦСКА", awayTeam: "Северсталь", homeWins: 3, awayWins: 0, isDone: true, winnerTeam: "ЦСКА", bracketPos: 0 },
-      { homeTeam: "Авангард", awayTeam: "Трактор", homeWins: 3, awayWins: 1, isDone: true, winnerTeam: "Авангард", bracketPos: 1 },
-      { homeTeam: "СКА", awayTeam: "Динамо Мн", homeWins: 3, awayWins: 0, isDone: true, winnerTeam: "СКА", bracketPos: 2 },
-      { homeTeam: "Металлург", awayTeam: "Торпедо", homeWins: 3, awayWins: 2, isDone: true, winnerTeam: "Металлург", bracketPos: 3 },
-      { homeTeam: "Ак Барс", awayTeam: "Салават Юл", homeWins: 3, awayWins: 1, isDone: true, winnerTeam: "Ак Барс", bracketPos: 4 },
-      { homeTeam: "Локомотив", awayTeam: "Нефтехимик", homeWins: 3, awayWins: 2, isDone: true, winnerTeam: "Локомотив", bracketPos: 5 },
-      { homeTeam: "Динамо М", awayTeam: "Амур", homeWins: 3, awayWins: 0, isDone: true, winnerTeam: "Динамо М", bracketPos: 6 },
-      { homeTeam: "Барыс", awayTeam: "Куньлунь", homeWins: 3, awayWins: 1, isDone: true, winnerTeam: "Барыс", bracketPos: 7 },
+      { homeTeam: "ЦСКА", homeBadge: B.tska, awayTeam: "Северсталь", awayBadge: B.sever, homeWins: 3, awayWins: 0, isDone: true, winnerTeam: "ЦСКА", bracketPos: 0 },
+      { homeTeam: "Авангард", homeBadge: B.avangard, awayTeam: "Трактор", awayBadge: B.traktor, homeWins: 3, awayWins: 1, isDone: true, winnerTeam: "Авангард", bracketPos: 1 },
+      { homeTeam: "СКА", homeBadge: B.ska, awayTeam: "Динамо Мн", awayBadge: B.dinamo_mn, homeWins: 3, awayWins: 0, isDone: true, winnerTeam: "СКА", bracketPos: 2 },
+      { homeTeam: "Металлург", homeBadge: B.metallurg, awayTeam: "Торпедо", awayBadge: B.torpedo, homeWins: 3, awayWins: 2, isDone: true, winnerTeam: "Металлург", bracketPos: 3 },
+      { homeTeam: "Ак Барс", homeBadge: B.akbars, awayTeam: "Салават Юл", awayBadge: B.salavat, homeWins: 3, awayWins: 1, isDone: true, winnerTeam: "Ак Барс", bracketPos: 4 },
+      { homeTeam: "Локомотив", homeBadge: B.loko, awayTeam: "Нефтехимик", awayBadge: B.neftekhim, homeWins: 3, awayWins: 2, isDone: true, winnerTeam: "Локомотив", bracketPos: 5 },
+      { homeTeam: "Динамо М", homeBadge: B.dinamo_m, awayTeam: "Амур", awayBadge: B.amur, homeWins: 3, awayWins: 0, isDone: true, winnerTeam: "Динамо М", bracketPos: 6 },
+      { homeTeam: "Барыс", homeBadge: B.barys, awayTeam: "Куньлунь", awayBadge: B.kunlun, homeWins: 3, awayWins: 1, isDone: true, winnerTeam: "Барыс", bracketPos: 7 },
     ],
   },
   {
     name: "1/4 финала",
     series: [
-      { homeTeam: "ЦСКА", awayTeam: "Авангард", homeWins: 3, awayWins: 2, isDone: true, winnerTeam: "ЦСКА", bracketPos: 0 },
-      { homeTeam: "СКА", awayTeam: "Металлург", homeWins: 3, awayWins: 1, isDone: true, winnerTeam: "СКА", bracketPos: 1 },
-      { homeTeam: "Ак Барс", awayTeam: "Локомотив", homeWins: 3, awayWins: 3, isDone: true, winnerTeam: "Ак Барс", bracketPos: 2 },
-      { homeTeam: "Динамо М", awayTeam: "Барыс", homeWins: 4, awayWins: 1, isDone: true, winnerTeam: "Динамо М", bracketPos: 3 },
+      { homeTeam: "ЦСКА", homeBadge: B.tska, awayTeam: "Авангард", awayBadge: B.avangard, homeWins: 3, awayWins: 2, isDone: true, winnerTeam: "ЦСКА", bracketPos: 0 },
+      { homeTeam: "СКА", homeBadge: B.ska, awayTeam: "Металлург", awayBadge: B.metallurg, homeWins: 3, awayWins: 1, isDone: true, winnerTeam: "СКА", bracketPos: 1 },
+      { homeTeam: "Ак Барс", homeBadge: B.akbars, awayTeam: "Локомотив", awayBadge: B.loko, homeWins: 3, awayWins: 3, isDone: true, winnerTeam: "Ак Барс", bracketPos: 2 },
+      { homeTeam: "Динамо М", homeBadge: B.dinamo_m, awayTeam: "Барыс", awayBadge: B.barys, homeWins: 4, awayWins: 1, isDone: true, winnerTeam: "Динамо М", bracketPos: 3 },
     ],
   },
   {
     name: "1/2 финала",
     series: [
-      { homeTeam: "ЦСКА", awayTeam: "СКА", homeWins: 4, awayWins: 2, isDone: true, winnerTeam: "ЦСКА", bracketPos: 0 },
-      { homeTeam: "Ак Барс", awayTeam: "Динамо М", homeWins: 3, awayWins: 4, isDone: true, winnerTeam: "Динамо М", bracketPos: 1 },
+      { homeTeam: "ЦСКА", homeBadge: B.tska, awayTeam: "СКА", awayBadge: B.ska, homeWins: 4, awayWins: 2, isDone: true, winnerTeam: "ЦСКА", bracketPos: 0 },
+      { homeTeam: "Ак Барс", homeBadge: B.akbars, awayTeam: "Динамо М", awayBadge: B.dinamo_m, homeWins: 3, awayWins: 4, isDone: true, winnerTeam: "Динамо М", bracketPos: 1 },
     ],
   },
   {
     name: "Кубок Гагарина",
     series: [
-      { homeTeam: "ЦСКА", awayTeam: "Динамо М", homeWins: 2, awayWins: 1, isDone: false, winnerTeam: null, bracketPos: 0 },
+      { homeTeam: "ЦСКА", homeBadge: B.tska, awayTeam: "Динамо М", awayBadge: B.dinamo_m, homeWins: 2, awayWins: 1, isDone: false, winnerTeam: null, bracketPos: 0 },
     ],
   },
 ];
