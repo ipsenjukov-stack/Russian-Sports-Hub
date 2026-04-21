@@ -44,7 +44,7 @@ export const TEAM_TRANSLATIONS: Record<string, string> = {
   "Krylya Sovetov Samara": "Крылья Советов Самара",
   "Lok. Moscow": "Локомотив Москва",
   "Lokomotiv Moscow": "Локомотив Москва",
-  "Nizhny Novgorod": "Нижний Новгород",
+  "Nizhny Novgorod": "Пари НН",
   "Orenburg": "Оренбург",
   "Rostov": "Ростов",
   "Rubin Kazan": "Рубин Казань",
