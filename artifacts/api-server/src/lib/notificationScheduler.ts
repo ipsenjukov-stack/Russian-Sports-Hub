@@ -1,4 +1,4 @@
-import { getTokensForTeams } from "./notificationStore";
+import { getRegistrationsForTeams, TokenRegistration } from "./notificationStore";
 import { logger } from "./logger";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
@@ -13,8 +13,9 @@ interface MatchSnapshot {
   period: string | null;
   status: string;
   startTimestamp: number;
-  notifiedThreeHours: boolean;
-  notifiedKickoff: boolean;
+  notifiedReminderTokens: Set<string>;
+  notifiedKickoffTokens: Set<string>;
+  notifiedEndTokens: Set<string>;
 }
 
 const snapshots = new Map<string, MatchSnapshot>();
@@ -75,17 +76,17 @@ async function pollOnce(apiBase: string) {
 
       if (!id || !homeTeam || !awayTeam) continue;
 
-      const teams = [homeTeam, awayTeam];
-      const tokens = getTokensForTeams(teams);
-      if (!tokens.length) continue;
+      const regs = getRegistrationsForTeams([homeTeam, awayTeam]);
+      if (!regs.length) continue;
 
       const prev = snapshots.get(id);
 
       const next: MatchSnapshot = {
         id, homeTeam, awayTeam, sport, homeScore, awayScore, period, status,
         startTimestamp: ts,
-        notifiedThreeHours: prev?.notifiedThreeHours ?? false,
-        notifiedKickoff: prev?.notifiedKickoff ?? false,
+        notifiedReminderTokens: new Set(prev?.notifiedReminderTokens ?? []),
+        notifiedKickoffTokens: new Set(prev?.notifiedKickoffTokens ?? []),
+        notifiedEndTokens: new Set(prev?.notifiedEndTokens ?? []),
       };
 
       if (!prev) {
@@ -93,50 +94,78 @@ async function pollOnce(apiBase: string) {
         continue;
       }
 
-      // ── 3-hour reminder ───────────────────────────────────────────────────
-      if (!prev.notifiedThreeHours && ts > 0 && status === "upcoming") {
-        const minsUntil = (ts - now) / 60_000;
-        if (minsUntil <= 180 && minsUntil > 150) {
-          await sendPush(tokens,
-            "Матч через 3 часа",
-            `${homeTeam} — ${awayTeam}`
-          );
-          next.notifiedThreeHours = true;
+      // ── Pre-match reminder (per user's hoursBefore setting) ──────────────
+      if (ts > 0 && status === "upcoming") {
+        const reminderTokens: string[] = [];
+        for (const reg of regs) {
+          if (next.notifiedReminderTokens.has(reg.token)) continue;
+          const windowMs = reg.notifPrefs.hoursBefore * 60 * 60 * 1000;
+          const windowStart = windowMs + 15 * 60 * 1000;
+          const windowEnd = windowMs - 15 * 60 * 1000;
+          const msUntil = ts - now;
+          if (msUntil <= windowStart && msUntil > windowEnd) {
+            reminderTokens.push(reg.token);
+            next.notifiedReminderTokens.add(reg.token);
+          }
+        }
+        if (reminderTokens.length) {
+          const h = regs.find(r => reminderTokens.includes(r.token))?.notifPrefs.hoursBefore ?? 3;
+          const hLabel = h === 1 ? "1 час" : h < 5 ? `${h} часа` : `${h} часов`;
+          await sendPush(reminderTokens, `Матч через ${hLabel} ⏰`, `${homeTeam} — ${awayTeam}`);
         }
       }
 
-      // ── Kickoff ───────────────────────────────────────────────────────────
-      if (!prev.notifiedKickoff && prev.status === "upcoming" && status === "live") {
-        await sendPush(tokens,
-          "Матч начался! 🏁",
-          `${homeTeam} — ${awayTeam}`
-        );
-        next.notifiedKickoff = true;
+      // ── Kickoff (onMatchStart) ────────────────────────────────────────────
+      if (prev.status === "upcoming" && status === "live") {
+        const kickoffTokens = regs
+          .filter((r) => r.notifPrefs.onMatchStart && !next.notifiedKickoffTokens.has(r.token))
+          .map((r) => r.token);
+        if (kickoffTokens.length) {
+          await sendPush(kickoffTokens, "Матч начался! 🏁", `${homeTeam} — ${awayTeam}`);
+          kickoffTokens.forEach((t) => next.notifiedKickoffTokens.add(t));
+        }
       }
 
-      // ── Score change (football / hockey) ─────────────────────────────────
-      if (status === "live" && (sport === "football" || sport === "hockey")) {
-        const prevTotal = (prev.homeScore ?? 0) + (prev.awayScore ?? 0);
-        const currTotal = (homeScore ?? 0) + (awayScore ?? 0);
-        if (currTotal > prevTotal && homeScore !== null && awayScore !== null) {
-          const scorer = homeScore > (prev.homeScore ?? 0) ? homeTeam : awayTeam;
-          const emoji = sport === "football" ? "⚽" : "🏒";
-          await sendPush(tokens,
-            `${emoji} Гол! ${scorer}`,
+      // ── Score change / in-match events (onMatchEvent) ────────────────────
+      if (status === "live") {
+        const eventTokens = regs.filter((r) => r.notifPrefs.onMatchEvent).map((r) => r.token);
+
+        if (eventTokens.length && (sport === "football" || sport === "hockey")) {
+          const prevTotal = (prev.homeScore ?? 0) + (prev.awayScore ?? 0);
+          const currTotal = (homeScore ?? 0) + (awayScore ?? 0);
+          if (currTotal > prevTotal && homeScore !== null && awayScore !== null) {
+            const scorer = homeScore > (prev.homeScore ?? 0) ? homeTeam : awayTeam;
+            const emoji = sport === "football" ? "⚽" : "🏒";
+            await sendPush(eventTokens,
+              `${emoji} Гол! ${scorer}`,
+              `${homeTeam} ${scoreLabel(homeScore, awayScore)} ${awayTeam}`
+            );
+          }
+        }
+
+        if (eventTokens.length && (sport === "volleyball" || sport === "basketball")) {
+          if (prev.period && period && prev.period !== period && prev.homeScore !== null && prev.awayScore !== null) {
+            const label = sport === "volleyball" ? "🏐 Партия завершена" : "🏀 Четверть завершена";
+            await sendPush(eventTokens,
+              label,
+              `${homeTeam} ${scoreLabel(prev.homeScore, prev.awayScore)} ${awayTeam} | ${prev.period}`
+            );
+          }
+        }
+      }
+
+      // ── Match finished (onMatchEnd) ───────────────────────────────────────
+      if (prev.status === "live" && status === "finished") {
+        const endTokens = regs
+          .filter((r) => r.notifPrefs.onMatchEnd && !next.notifiedEndTokens.has(r.token))
+          .map((r) => r.token);
+        if (endTokens.length && homeScore !== null && awayScore !== null) {
+          const sportEmoji = sport === "football" ? "⚽" : sport === "hockey" ? "🏒" : sport === "basketball" ? "🏀" : "🏐";
+          await sendPush(endTokens,
+            `${sportEmoji} Матч завершён`,
             `${homeTeam} ${scoreLabel(homeScore, awayScore)} ${awayTeam}`
           );
-        }
-      }
-
-      // ── Period/set change (volleyball / basketball) ───────────────────────
-      if (status === "live" && (sport === "volleyball" || sport === "basketball")) {
-        if (prev.period && period && prev.period !== period && prev.homeScore !== null && prev.awayScore !== null) {
-          const label = sport === "volleyball" ? "🏐 Партия завершена" : "🏀 Четверть завершена";
-          const prevPeriod = prev.period;
-          await sendPush(tokens,
-            label,
-            `${homeTeam} ${scoreLabel(prev.homeScore, prev.awayScore)} ${awayTeam} | ${prevPeriod}`
-          );
+          endTokens.forEach((t) => next.notifiedEndTokens.add(t));
         }
       }
 

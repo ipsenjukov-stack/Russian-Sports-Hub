@@ -4,6 +4,20 @@ import Constants from "expo-constants";
 import { FavoriteTeam } from "@/context/FavoritesContext";
 import { Match } from "@/types/sports";
 
+export interface NotifPrefs {
+  hoursBefore: number;
+  onMatchStart: boolean;
+  onMatchEvent: boolean;
+  onMatchEnd: boolean;
+}
+
+export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
+  hoursBefore: 3,
+  onMatchStart: true,
+  onMatchEvent: true,
+  onMatchEnd: true,
+};
+
 function getApiBase(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"];
   if (domain) return `https://${domain}`;
@@ -45,14 +59,22 @@ export async function getExpoPushToken(): Promise<string | null> {
   }
 }
 
-export async function registerWithBackend(token: string, favorites: FavoriteTeam[]): Promise<void> {
+export async function registerWithBackend(
+  token: string,
+  favorites: FavoriteTeam[],
+  prefs?: NotifPrefs
+): Promise<void> {
   const base = getApiBase();
   if (!base) return;
   try {
     await fetch(`${base}/api/notifications/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, favorites: favorites.map((f) => f.name) }),
+      body: JSON.stringify({
+        token,
+        favorites: favorites.map((f) => f.name),
+        notifPrefs: prefs ?? DEFAULT_NOTIF_PREFS,
+      }),
     });
   } catch {}
 }
@@ -69,7 +91,11 @@ export async function unregisterFromBackend(token: string): Promise<void> {
   } catch {}
 }
 
-export async function scheduleMatchReminders(matches: Match[], favorites: FavoriteTeam[]): Promise<void> {
+export async function scheduleMatchReminders(
+  matches: Match[],
+  favorites: FavoriteTeam[],
+  prefs: NotifPrefs = DEFAULT_NOTIF_PREFS
+): Promise<void> {
   if (Platform.OS === "web") return;
 
   await Notifications.cancelAllScheduledNotificationsAsync();
@@ -88,24 +114,27 @@ export async function scheduleMatchReminders(matches: Match[], favorites: Favori
 
     const label = `${match.homeTeam.name} — ${match.awayTeam.name}`;
 
-    // 3 hours before
-    const threeHoursBefore = ts - 3 * 60 * 60 * 1000;
-    if (threeHoursBefore > now) {
+    const hourLabel =
+      prefs.hoursBefore === 1 ? "1 час" :
+      prefs.hoursBefore < 5 ? `${prefs.hoursBefore} часа` :
+      `${prefs.hoursBefore} часов`;
+
+    const reminderTime = ts - prefs.hoursBefore * 60 * 60 * 1000;
+    if (reminderTime > now) {
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: "Матч через 3 часа ⏰",
+          title: `Матч через ${hourLabel} ⏰`,
           body: label,
           sound: true,
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date: new Date(threeHoursBefore),
+          date: new Date(reminderTime),
         },
       }).catch(() => {});
     }
 
-    // At kickoff
-    if (ts > now) {
+    if (prefs.onMatchStart && ts > now) {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: "Матч начинается! 🏁",

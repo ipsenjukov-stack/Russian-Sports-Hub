@@ -24,11 +24,14 @@ import {
   getExpoPushToken,
   registerWithBackend,
   unregisterFromBackend,
+  NotifPrefs,
+  DEFAULT_NOTIF_PREFS,
 } from "@/services/pushNotifications";
 
 const FAN_KEY = "@sports_russia_fan";
 const NOTIF_KEY = "@sports_russia_notif";
 const TOKEN_KEY = "@sports_russia_push_token";
+const NOTIF_PREFS_KEY = "@sports_russia_notif_prefs";
 
 interface FanProfile {
   name: string;
@@ -39,6 +42,14 @@ interface FanProfile {
 interface SettingsModalProps {
   visible: boolean;
   onClose: () => void;
+}
+
+const HOUR_OPTIONS = [1, 2, 3, 4, 5, 6];
+
+function hoursLabel(h: number): string {
+  if (h === 1) return "1 ч";
+  if (h < 5) return `${h} ч`;
+  return `${h} ч`;
 }
 
 export function SettingsModal({ visible, onClose }: SettingsModalProps) {
@@ -54,6 +65,7 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifStatus, setNotifStatus] = useState<"idle" | "denied" | "active">("idle");
+  const [prefs, setPrefs] = useState<NotifPrefs>(DEFAULT_NOTIF_PREFS);
 
   useEffect(() => {
     AsyncStorage.getItem(FAN_KEY).then((raw) => {
@@ -62,6 +74,9 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
     AsyncStorage.getItem(NOTIF_KEY).then((val) => {
       setNotifEnabled(val === "true");
       if (val === "true") setNotifStatus("active");
+    });
+    AsyncStorage.getItem(NOTIF_PREFS_KEY).then((raw) => {
+      if (raw) { try { setPrefs({ ...DEFAULT_NOTIF_PREFS, ...JSON.parse(raw) }); } catch {} }
     });
   }, []);
 
@@ -77,6 +92,12 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
     AsyncStorage.setItem(FAN_KEY, JSON.stringify(fan));
     setFanSaved(true);
     setTimeout(() => setFanSaved(false), 2000);
+  }
+
+  function updatePref<K extends keyof NotifPrefs>(key: K, value: NotifPrefs[K]) {
+    const updated = { ...prefs, [key]: value };
+    setPrefs(updated);
+    AsyncStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(updated));
   }
 
   const toggleNotif = useCallback(async (val: boolean) => {
@@ -100,7 +121,7 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
         const token = await getExpoPushToken();
         if (token) {
           await AsyncStorage.setItem(TOKEN_KEY, token);
-          await registerWithBackend(token, favorites);
+          await registerWithBackend(token, favorites, prefs);
         }
         setNotifEnabled(true);
         setNotifStatus("active");
@@ -115,7 +136,7 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
       setNotifStatus("idle");
       AsyncStorage.setItem(NOTIF_KEY, "false");
     }
-  }, [favorites]);
+  }, [favorites, prefs]);
 
   const THEME_OPTIONS: { key: ThemePreference; label: string; icon: string }[] = [
     { key: "system", label: "Авто", icon: "phone-portrait-outline" },
@@ -148,10 +169,8 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
             },
           ]}
         >
-          {/* Handle */}
           <View style={[styles.handle, { backgroundColor: colors.muted }]} />
 
-          {/* Header */}
           <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
             <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Настройки</Text>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -237,8 +256,10 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
             </View>
 
             {/* ── Пуш-уведомления ─────────────────────────────────────── */}
-            <View style={styles.section}>
+            <View style={[styles.section, { borderBottomColor: colors.border }]}>
               <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>УВЕДОМЛЕНИЯ</Text>
+
+              {/* Master toggle */}
               <View style={styles.notifRow}>
                 <View style={styles.notifTextCol}>
                   <Text style={[styles.notifTitle, { color: colors.foreground }]}>Пуш-уведомления</Text>
@@ -247,7 +268,7 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                       ? `Активно · ${favorites.length > 0 ? `${favorites.length} команд` : "добавьте избранные"}`
                       : notifStatus === "denied"
                       ? "Разрешение отклонено"
-                      : "Голы, партии, старт матчей"}
+                      : "Включите для избранных команд"}
                   </Text>
                 </View>
                 <Switch
@@ -260,12 +281,105 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                 />
               </View>
 
+              {/* Notification preferences — visible when enabled */}
               {notifStatus === "active" && (
-                <View style={[styles.notifNote, { backgroundColor: colors.muted, borderRadius: 8 }]}>
-                  <Ionicons name="checkmark-circle-outline" size={14} color={colors.primary} />
-                  <Text style={[styles.notifNoteText, { color: colors.mutedForeground }]}>
-                    Гол (футбол, хоккей), смена партии (волейбол), четверти (баскетбол), за 3 ч до матча и при старте
-                  </Text>
+                <View style={[styles.prefsCard, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+
+                  {/* Hours before */}
+                  <View style={styles.prefRow}>
+                    <View style={styles.prefTextCol}>
+                      <Text style={[styles.prefLabel, { color: colors.foreground }]}>Напомнить до матча</Text>
+                      <Text style={[styles.prefSub, { color: colors.mutedForeground }]}>
+                        За {hoursLabel(prefs.hoursBefore)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Step selector */}
+                  <View style={styles.hoursRow}>
+                    {HOUR_OPTIONS.map((h) => {
+                      const active = prefs.hoursBefore === h;
+                      return (
+                        <TouchableOpacity
+                          key={h}
+                          onPress={() => updatePref("hoursBefore", h)}
+                          style={[
+                            styles.hourPill,
+                            {
+                              backgroundColor: active ? colors.primary : colors.background,
+                              borderColor: active ? colors.primary : colors.border,
+                            },
+                          ]}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={[
+                            styles.hourPillText,
+                            { color: active ? "#fff" : colors.mutedForeground, fontFamily: active ? "Inter_700Bold" : "Inter_400Regular" }
+                          ]}>
+                            {h}ч
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <View style={[styles.prefDivider, { backgroundColor: colors.border }]} />
+
+                  {/* Match start */}
+                  <View style={styles.prefRow}>
+                    <View style={styles.prefTextCol}>
+                      <Text style={[styles.prefLabel, { color: colors.foreground }]}>Начало матча</Text>
+                      <Text style={[styles.prefSub, { color: colors.mutedForeground }]}>
+                        Уведомление при старте
+                      </Text>
+                    </View>
+                    <Switch
+                      value={prefs.onMatchStart}
+                      onValueChange={(v) => updatePref("onMatchStart", v)}
+                      trackColor={{ false: colors.border, true: colors.primary }}
+                      thumbColor="#fff"
+                      ios_backgroundColor={colors.border}
+                    />
+                  </View>
+
+                  <View style={[styles.prefDivider, { backgroundColor: colors.border }]} />
+
+                  {/* In-match events */}
+                  <View style={styles.prefRow}>
+                    <View style={styles.prefTextCol}>
+                      <Text style={[styles.prefLabel, { color: colors.foreground }]}>События в матче</Text>
+                      <Text style={[styles.prefSub, { color: colors.mutedForeground }]}>
+                        Гол, партия, четверть
+                      </Text>
+                    </View>
+                    <Switch
+                      value={prefs.onMatchEvent}
+                      onValueChange={(v) => updatePref("onMatchEvent", v)}
+                      trackColor={{ false: colors.border, true: colors.primary }}
+                      thumbColor="#fff"
+                      ios_backgroundColor={colors.border}
+                    />
+                  </View>
+
+                  <View style={[styles.prefDivider, { backgroundColor: colors.border }]} />
+
+                  {/* Match end */}
+                  <View style={styles.prefRow}>
+                    <View style={styles.prefTextCol}>
+                      <Text style={[styles.prefLabel, { color: colors.foreground }]}>Завершение матча</Text>
+                      <Text style={[styles.prefSub, { color: colors.mutedForeground }]}>
+                        Итоговый счёт
+                      </Text>
+                    </View>
+                    <Switch
+                      value={prefs.onMatchEnd}
+                      onValueChange={(v) => updatePref("onMatchEnd", v)}
+                      trackColor={{ false: colors.border, true: colors.primary }}
+                      thumbColor="#fff"
+                      ios_backgroundColor={colors.border}
+                    />
+                  </View>
+
                 </View>
               )}
 
@@ -307,7 +421,7 @@ const styles = StyleSheet.create({
   sheet: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: "85%",
+    maxHeight: "90%",
     paddingTop: 10,
   },
   handle: {
@@ -408,5 +522,51 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     flex: 1,
     lineHeight: 18,
+  },
+  prefsCard: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+  },
+  prefRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  prefTextCol: {
+    flex: 1,
+    marginRight: 12,
+  },
+  prefLabel: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  prefSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 1,
+  },
+  prefDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 14,
+  },
+  hoursRow: {
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+  },
+  hourPill: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  hourPillText: {
+    fontSize: 13,
   },
 });
