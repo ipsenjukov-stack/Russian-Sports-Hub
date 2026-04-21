@@ -5,8 +5,10 @@ import {
   ScrollView,
   StyleSheet,
   RefreshControl,
+  TouchableOpacity,
   Platform,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
@@ -18,6 +20,7 @@ import { LiveCounter } from "@/components/LiveCounter";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
+import { SettingsModal } from "@/components/SettingsModal";
 import { SportType } from "@/types/sports";
 
 type FilterOption = SportType;
@@ -26,6 +29,7 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<FilterOption>("football");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
@@ -48,9 +52,13 @@ export default function HomeScreen() {
             <Text style={[styles.headerTitle, { color: colors.foreground }]}>Матчи</Text>
             <Text style={[styles.headerSubtitle, { color: colors.mutedForeground }]}>Лайв и результаты</Text>
           </View>
-          <View style={[styles.flagBadge, { backgroundColor: colors.primary }]}>
-            <Text style={styles.flagText}>🇷🇺</Text>
-          </View>
+          <TouchableOpacity
+            onPress={() => setSettingsOpen(true)}
+            style={[styles.gearBtn, { backgroundColor: colors.muted }]}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="settings-outline" size={22} color={colors.foreground} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -106,6 +114,8 @@ export default function HomeScreen() {
           )}
         </ScrollView>
       )}
+
+      <SettingsModal visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </View>
   );
 }
@@ -131,13 +141,12 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     marginTop: 2,
   },
-  flagBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  gearBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
-  flagText: { fontSize: 22 },
   scroll: { flex: 1 },
 });

@@ -1,11 +1,9 @@
-import { useColorScheme } from "react-native";
+import { useTheme } from "@/context/ThemeContext";
 import colors from "@/constants/colors";
 
 export function useColors() {
-  const scheme = useColorScheme();
-  const isDark = scheme === "dark";
-  const palette = isDark && "dark" in colors
-    ? (colors as Record<string, typeof colors.light>).dark
-    : colors.light;
+  const { effectiveScheme } = useTheme();
+  const isDark = effectiveScheme === "dark";
+  const palette = isDark ? colors.dark : colors.light;
   return { ...palette, radius: colors.radius };
 }
