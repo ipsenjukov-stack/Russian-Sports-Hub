@@ -14,6 +14,7 @@ import {
   KhlPlayoffRound,
   KhlPlayoffSeries,
 } from "@/hooks/useSportsData";
+import { KhlBracket } from "./KhlBracket";
 
 // ── TeamBadge ─────────────────────────────────────────────────────────────────
 function TeamBadge({ uri, name, size = 24 }: { uri: string; name: string; size?: number }) {
@@ -129,115 +130,6 @@ function ConferenceTable({ conf }: { conf: KhlConference }) {
   );
 }
 
-// ── Playoff Bracket ───────────────────────────────────────────────────────────
-function SeriesCard({ series, seriesWins }: { series: KhlPlayoffSeries; seriesWins: number }) {
-  const colors = useColors();
-  const homeLeads = series.homeWins > series.awayWins;
-  const awayLeads = series.awayWins > series.homeWins;
-  const isDone = series.homeWins === seriesWins || series.awayWins === seriesWins;
-  const homeWon = isDone && series.homeWins === seriesWins;
-  const awayWon = isDone && series.awayWins === seriesWins;
-
-  return (
-    <View style={[khlStyles.seriesCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      {/* Home team */}
-      <View style={khlStyles.seriesRow}>
-        <TeamBadge uri={series.homeBadge} name={series.homeTeam} size={22} />
-        <Text
-          style={[
-            khlStyles.seriesTeam,
-            {
-              color: homeWon ? colors.primary : colors.foreground,
-              fontFamily: homeLeads || homeWon ? "Inter_700Bold" : "Inter_400Regular",
-              flex: 1,
-            },
-          ]}
-          numberOfLines={1}
-        >
-          {series.homeTeam}
-        </Text>
-        <Text
-          style={[
-            khlStyles.seriesWins,
-            {
-              color: homeWon ? colors.primary : homeLeads ? colors.foreground : colors.mutedForeground,
-              fontFamily: homeLeads || homeWon ? "Inter_700Bold" : "Inter_400Regular",
-            },
-          ]}
-        >
-          {series.homeWins}
-        </Text>
-      </View>
-
-      {/* Divider */}
-      <View style={[khlStyles.seriesDivider, { backgroundColor: colors.border }]} />
-
-      {/* Away team */}
-      <View style={khlStyles.seriesRow}>
-        <TeamBadge uri={series.awayBadge} name={series.awayTeam} size={22} />
-        <Text
-          style={[
-            khlStyles.seriesTeam,
-            {
-              color: awayWon ? colors.primary : colors.foreground,
-              fontFamily: awayLeads || awayWon ? "Inter_700Bold" : "Inter_400Regular",
-              flex: 1,
-            },
-          ]}
-          numberOfLines={1}
-        >
-          {series.awayTeam}
-        </Text>
-        <Text
-          style={[
-            khlStyles.seriesWins,
-            {
-              color: awayWon ? colors.primary : awayLeads ? colors.foreground : colors.mutedForeground,
-              fontFamily: awayLeads || awayWon ? "Inter_700Bold" : "Inter_400Regular",
-            },
-          ]}
-        >
-          {series.awayWins}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function PlayoffBracket({ rounds }: { rounds: KhlPlayoffRound[] }) {
-  const colors = useColors();
-  if (rounds.length === 0) {
-    return (
-      <View style={khlStyles.emptyBracket}>
-        <Text style={[khlStyles.emptyText, { color: colors.mutedForeground }]}>
-          Сетка плей-офф пока недоступна
-        </Text>
-      </View>
-    );
-  }
-
-  return (
-    <View>
-      {rounds.map((round, ri) => {
-        if (!round.series || round.series.length === 0) return null;
-        const seriesWins = 4;
-        return (
-          <View key={ri} style={khlStyles.roundBlock}>
-            <View style={[khlStyles.roundHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[khlStyles.roundName, { color: colors.foreground }]}>{round.name}</Text>
-            </View>
-            <View style={khlStyles.seriesGrid}>
-              {round.series.map((s, si) => (
-                <SeriesCard key={si} series={s} seriesWins={seriesWins} />
-              ))}
-            </View>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
 // ── Main export ───────────────────────────────────────────────────────────────
 interface KhlStandingsViewProps {
   conferences: KhlConference[];
@@ -297,7 +189,7 @@ export function KhlStandingsView({ conferences, playoffs, bottomPadding }: KhlSt
         showsVerticalScrollIndicator={false}
       >
         {activeTab === "Плей-офф" ? (
-          <PlayoffBracket rounds={playoffs} />
+          <KhlBracket rounds={playoffs} bottomPadding={bottomPadding} />
         ) : (
           <>
             {!hasStandings ? (

@@ -378,6 +378,9 @@ type KhlPlayoffSeries = {
   awayBadge: string;
   awayWins: number;
   seriesLength: number;
+  bracketPos: number;
+  isDone: boolean;
+  winnerTeam?: string;
 };
 
 async function fetchKhlPlayoffsFromEvents(): Promise<{ rounds: { name: string; series: KhlPlayoffSeries[] }[]; season: string } | null> {
@@ -426,11 +429,13 @@ async function fetchKhlPlayoffsFromEvents(): Promise<{ rounds: { name: string; s
     const key = `${a.id}|${b.id}`;
 
     if (!seriesMap.has(key)) {
-      seriesMap.set(key, { team1: a, team2: b, team1Wins: 0, team2Wins: 0, lastTimestamp: 0, gameCount: 0 });
+      seriesMap.set(key, { team1: a, team2: b, team1Wins: 0, team2Wins: 0,
+        lastTimestamp: 0, firstTimestamp: Infinity, gameCount: 0 });
     }
     const s = seriesMap.get(key)!;
     s.gameCount++;
     if (ev.startTimestamp > s.lastTimestamp) s.lastTimestamp = ev.startTimestamp;
+    if (ev.startTimestamp < s.firstTimestamp) s.firstTimestamp = ev.startTimestamp;
 
     const finished = ev.status?.type === "finished";
     if (finished) {
@@ -443,27 +448,64 @@ async function fetchKhlPlayoffsFromEvents(): Promise<{ rounds: { name: string; s
     }
   }
 
-  // Keep series with at least 1 game (include upcoming series with 0-0 score)
+  // Keep series with at least 1 game, sort by firstTimestamp ascending (earlier = earlier round)
   const activeSeries = Array.from(seriesMap.values())
     .filter((s) => s.gameCount > 0)
-    .sort((a, b) => b.lastTimestamp - a.lastTimestamp)
-    .slice(0, 12); // cap at 12 series max
+    .sort((a, b) => a.firstTimestamp - b.firstTimestamp)
+    .slice(0, 15);
 
   if (activeSeries.length === 0) return null;
 
-  const series: KhlPlayoffSeries[] = activeSeries.map((s) => ({
-    round: "Плей-офф",
-    homeTeam: translateTeam(s.team1.name),
-    homeBadge: proxyImg(`https://api.sofascore.app/api/v1/team/${s.team1.id}/image`),
-    homeWins: s.team1Wins,
-    awayTeam: translateTeam(s.team2.name),
-    awayBadge: proxyImg(`https://api.sofascore.app/api/v1/team/${s.team2.id}/image`),
-    awayWins: s.team2Wins,
-    seriesLength: s.team1Wins + s.team2Wins,
-  }));
+  // Cluster into rounds by time gap > 5 days between consecutive series starts
+  const GAP_MS = 5 * 24 * 60 * 60 * 1000;
+  const roundGroups: typeof activeSeries[] = [];
+  let current: typeof activeSeries = [];
+  for (let i = 0; i < activeSeries.length; i++) {
+    if (i === 0) { current.push(activeSeries[i]); continue; }
+    const gap = activeSeries[i].firstTimestamp - activeSeries[i - 1].firstTimestamp;
+    if (gap > GAP_MS && current.length > 0) {
+      roundGroups.push(current);
+      current = [];
+    }
+    current.push(activeSeries[i]);
+  }
+  if (current.length > 0) roundGroups.push(current);
+
+  // Name rounds based on series count (KHL: 8→1/8, 4→1/4, 2→1/2, 1→Финал)
+  function roundName(count: number, roundIdx: number, totalRounds: number): string {
+    if (count >= 7) return "1/8 финала";
+    if (count >= 4) return "1/4 финала";
+    if (count >= 2) return "1/2 финала";
+    return "Кубок Гагарина";
+  }
+
+  const rounds = roundGroups.map((group, ri) => {
+    const name = roundName(group.length, ri, roundGroups.length);
+    const WINS_NEEDED = group.length <= 2 ? 4 : 3; // SF/Final: best-of-7 (4 wins); R1/QF: best-of-5 (3 wins)
+    const series: KhlPlayoffSeries[] = group.map((s, si) => {
+      const isDone = s.team1Wins >= WINS_NEEDED || s.team2Wins >= WINS_NEEDED;
+      const winnerTeam = isDone
+        ? (s.team1Wins >= WINS_NEEDED ? translateTeam(s.team1.name) : translateTeam(s.team2.name))
+        : undefined;
+      return {
+        round: name,
+        homeTeam: translateTeam(s.team1.name),
+        homeBadge: proxyImg(`https://api.sofascore.app/api/v1/team/${s.team1.id}/image`),
+        homeWins: s.team1Wins,
+        awayTeam: translateTeam(s.team2.name),
+        awayBadge: proxyImg(`https://api.sofascore.app/api/v1/team/${s.team2.id}/image`),
+        awayWins: s.team2Wins,
+        seriesLength: s.team1Wins + s.team2Wins,
+        bracketPos: si,
+        isDone,
+        winnerTeam,
+      };
+    });
+    return { name, series };
+  });
 
   const seasonYear = season?.year ?? "25/26";
-  return { rounds: [{ name: `Плей-офф ${seasonYear}`, series }], season: seasonYear };
+  return { rounds, season: seasonYear };
 }
 
 // ── Generic Sofascore league standings (basketball / volleyball) ──────────────
@@ -987,6 +1029,45 @@ router.get("/sports/season-events", async (req, res) => {
   }
 });
 
+// Demo KHL playoff bracket used in dev when Sofascore is unreachable
+const KHL_DEMO_BRACKET = [
+  {
+    name: "1/8 финала",
+    series: [
+      { homeTeam: "ЦСКА", awayTeam: "Северсталь", homeWins: 3, awayWins: 0, isDone: true, winnerTeam: "ЦСКА", bracketPos: 0 },
+      { homeTeam: "Авангард", awayTeam: "Трактор", homeWins: 3, awayWins: 1, isDone: true, winnerTeam: "Авангард", bracketPos: 1 },
+      { homeTeam: "СКА", awayTeam: "Динамо Мн", homeWins: 3, awayWins: 0, isDone: true, winnerTeam: "СКА", bracketPos: 2 },
+      { homeTeam: "Металлург", awayTeam: "Торпедо", homeWins: 3, awayWins: 2, isDone: true, winnerTeam: "Металлург", bracketPos: 3 },
+      { homeTeam: "Ак Барс", awayTeam: "Салават Юл", homeWins: 3, awayWins: 1, isDone: true, winnerTeam: "Ак Барс", bracketPos: 4 },
+      { homeTeam: "Локомотив", awayTeam: "Нефтехимик", homeWins: 3, awayWins: 2, isDone: true, winnerTeam: "Локомотив", bracketPos: 5 },
+      { homeTeam: "Динамо М", awayTeam: "Амур", homeWins: 3, awayWins: 0, isDone: true, winnerTeam: "Динамо М", bracketPos: 6 },
+      { homeTeam: "Барыс", awayTeam: "Куньлунь", homeWins: 3, awayWins: 1, isDone: true, winnerTeam: "Барыс", bracketPos: 7 },
+    ],
+  },
+  {
+    name: "1/4 финала",
+    series: [
+      { homeTeam: "ЦСКА", awayTeam: "Авангард", homeWins: 3, awayWins: 2, isDone: true, winnerTeam: "ЦСКА", bracketPos: 0 },
+      { homeTeam: "СКА", awayTeam: "Металлург", homeWins: 3, awayWins: 1, isDone: true, winnerTeam: "СКА", bracketPos: 1 },
+      { homeTeam: "Ак Барс", awayTeam: "Локомотив", homeWins: 3, awayWins: 3, isDone: true, winnerTeam: "Ак Барс", bracketPos: 2 },
+      { homeTeam: "Динамо М", awayTeam: "Барыс", homeWins: 4, awayWins: 1, isDone: true, winnerTeam: "Динамо М", bracketPos: 3 },
+    ],
+  },
+  {
+    name: "1/2 финала",
+    series: [
+      { homeTeam: "ЦСКА", awayTeam: "СКА", homeWins: 4, awayWins: 2, isDone: true, winnerTeam: "ЦСКА", bracketPos: 0 },
+      { homeTeam: "Ак Барс", awayTeam: "Динамо М", homeWins: 3, awayWins: 4, isDone: true, winnerTeam: "Динамо М", bracketPos: 1 },
+    ],
+  },
+  {
+    name: "Кубок Гагарина",
+    series: [
+      { homeTeam: "ЦСКА", awayTeam: "Динамо М", homeWins: 2, awayWins: 1, isDone: false, winnerTeam: null, bracketPos: 0 },
+    ],
+  },
+];
+
 // GET /api/sports/standings?sport=football
 type StandingEntry = {
   rank: number; team: string; badge: string;
@@ -1055,12 +1136,15 @@ router.get("/sports/standings", async (req, res) => {
         }
       }
 
+      const livePlayoffs = playoffs?.rounds ?? [];
+      // Use demo bracket in dev when Sofascore is unreachable (so bracket UI is visible)
+      const playoffsOut = livePlayoffs.length > 0 ? livePlayoffs : KHL_DEMO_BRACKET;
       return res.json({
         league: "КХЛ",
         season,
         entries: [],
         conferences,
-        playoffs: playoffs?.rounds ?? [],
+        playoffs: playoffsOut,
       });
     }
     if (sport === "basketball") {

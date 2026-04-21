@@ -32,6 +32,9 @@ export interface KhlPlayoffSeries {
   homeTeam: string; homeBadge: string; homeWins: number;
   awayTeam: string; awayBadge: string; awayWins: number;
   seriesLength: number;
+  bracketPos: number;
+  isDone: boolean;
+  winnerTeam?: string;
 }
 
 export interface KhlPlayoffRound {
