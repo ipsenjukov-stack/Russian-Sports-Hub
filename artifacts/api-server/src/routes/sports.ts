@@ -391,13 +391,13 @@ type KhlPlayoffSeries = {
 async function fetchKhlPlayoffsFromEvents(): Promise<{ rounds: { name: string; series: KhlPlayoffSeries[] }[]; season: string } | null> {
   const season = await getKhlCurrentSeasonId();
 
-  // Fetch a 35-day window: -28 days (covers most playoff rounds) to +7 days ahead
-  // Uses same URL pattern as fetchSofascoreHockey → shares cache
+  // Fetch a 77-day window: -70 days (covers full KHL playoff run ~Feb-May) to +7 days ahead
+  // Historical days use long TTL cache, so subsequent requests are fast
   const now = new Date();
   const tasks: Array<() => Promise<void>> = [];
   const allEvents: SofascoreEvent[] = [];
 
-  for (let i = -28; i <= 7; i++) {
+  for (let i = -70; i <= 7; i++) {
     const d = new Date(now);
     d.setDate(d.getDate() + i);
     const date = d.toISOString().slice(0, 10);
