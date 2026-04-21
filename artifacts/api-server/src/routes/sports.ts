@@ -148,8 +148,8 @@ const SPORTSDB_LEAGUES = [
   { id: "4545", sport: "volleyball", name: "Суперлига Волейбол", seasons: ["2024-2025", "2023-2024"] },
 ];
 
-// TheSportsDB league ID for Russian Premier League (for badge only)
-const RPL_SPORTSDB_ID = "4480";
+// TheSportsDB league ID for Russian Premier League (for badge only) — ID 4355
+const RPL_SPORTSDB_ID = "4355";
 
 async function fetchSportsDBEvents(): Promise<unknown[]> {
   const allEvents: unknown[] = [];
