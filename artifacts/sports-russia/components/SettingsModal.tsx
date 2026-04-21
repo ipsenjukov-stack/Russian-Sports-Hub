@@ -26,6 +26,7 @@ import {
   unregisterFromBackend,
   setActivePrefs,
   setupAndroidChannel,
+  getApiBase,
   NotifPrefs,
   DEFAULT_NOTIF_PREFS,
 } from "@/services/pushNotifications";
@@ -458,6 +459,35 @@ export function SettingsModal({ visible, onClose }: SettingsModalProps) {
                 </View>
               )}
 
+              {notifStatus === "active" && (
+                <TouchableOpacity
+                  style={[styles.testBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                  activeOpacity={0.75}
+                  onPress={async () => {
+                    try {
+                      const base = getApiBase();
+                      const token = await AsyncStorage.getItem("@sports_russia_push_token");
+                      const resp = await fetch(`${base}/api/notifications/test-goal`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(token ? { token } : {}),
+                      });
+                      const data = await resp.json();
+                      if (data.ok) {
+                        Alert.alert("Тест отправлен ✅", `${data.title}\n${data.body}`);
+                      } else {
+                        Alert.alert("Ошибка", data.error ?? "Не удалось отправить");
+                      }
+                    } catch (e) {
+                      Alert.alert("Ошибка", String(e));
+                    }
+                  }}
+                >
+                  <Ionicons name="paper-plane-outline" size={16} color={colors.mutedForeground} />
+                  <Text style={[styles.testBtnText, { color: colors.mutedForeground }]}>Тестовое уведомление о голе</Text>
+                </TouchableOpacity>
+              )}
+
               {notifStatus === "denied" && (
                 <View style={[styles.notifNote, { backgroundColor: colors.muted, borderRadius: 8 }]}>
                   <Ionicons name="alert-circle-outline" size={14} color="#F59E0B" />
@@ -661,6 +691,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   soundPillText: {
+    fontSize: 13,
+  },
+  testBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginHorizontal: 14,
+    marginBottom: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  testBtnText: {
     fontSize: 13,
   },
 });

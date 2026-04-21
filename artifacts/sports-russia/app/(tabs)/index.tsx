@@ -22,7 +22,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
 import { SportType } from "@/types/sports";
 import { useFavorites } from "@/context/FavoritesContext";
-import { scheduleMatchReminders } from "@/services/pushNotifications";
+import { scheduleMatchReminders, registerWithBackend, DEFAULT_NOTIF_PREFS, NotifPrefs } from "@/services/pushNotifications";
 
 type FilterOption = SportType;
 
@@ -34,6 +34,23 @@ export default function HomeScreen() {
   const { favorites } = useFavorites();
 
   const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
+
+  // Re-register push token on every launch (token store is in-memory, resets on server restart)
+  useEffect(() => {
+    AsyncStorage.multiGet(["@sports_russia_notif", "@sports_russia_push_token", "@sports_russia_notif_prefs"])
+      .then(([notifPair, tokenPair, prefsPair]) => {
+        const notifEnabled = notifPair[1] === "true";
+        const token = tokenPair[1];
+        if (!notifEnabled || !token) return;
+        try {
+          const prefs: NotifPrefs = prefsPair[1]
+            ? { ...DEFAULT_NOTIF_PREFS, ...JSON.parse(prefsPair[1]) }
+            : DEFAULT_NOTIF_PREFS;
+          registerWithBackend(token, favorites, prefs).catch(() => {});
+        } catch {}
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!allMatches?.length || !favorites.length) return;

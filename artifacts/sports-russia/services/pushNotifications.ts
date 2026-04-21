@@ -22,7 +22,7 @@ export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
   vibration: true,
 };
 
-function getApiBase(): string {
+export function getApiBase(): string {
   const domain = process.env["EXPO_PUBLIC_DOMAIN"];
   if (domain) return `https://${domain}`;
   if (Platform.OS === "web" && typeof window !== "undefined") return window.location.origin;
