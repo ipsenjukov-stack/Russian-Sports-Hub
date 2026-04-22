@@ -41,7 +41,7 @@ const KHL_TEST_PAIRS = [
   { home: "ЦСКА", away: "Динамо Москва", homeScore: 2, awayScore: 1 },
   { home: "СКА", away: "Авангард", homeScore: 1, awayScore: 1 },
   { home: "Металлург Магнитогорск", away: "Ак Барс", homeScore: 3, awayScore: 2 },
-  { home: "Локомотив", away: "Торпедо Нижний Новгород", homeScore: 0, awayScore: 1 },
+  { home: "Локомотив", away: "Торпедо Н. Новгород", homeScore: 0, awayScore: 1 },
   { home: "Динамо Москва", away: "Барыс", homeScore: 4, awayScore: 2 },
 ];
 
