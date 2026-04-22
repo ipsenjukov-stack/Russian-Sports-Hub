@@ -174,6 +174,7 @@ interface SofascoreEvent {
   startTimestamp: number;
   tournament: { name: string; uniqueTournament?: { id: number } };
   season?: { id: number; year: string };
+  roundInfo?: { round?: number; name?: string; cupRoundType?: number };
 }
 
 // ── KHL Persistent file cache ─────────────────────────────────────────────────
@@ -390,59 +391,85 @@ type KhlPlayoffSeries = {
 
 async function fetchKhlPlayoffsFromEvents(): Promise<{ rounds: { name: string; series: KhlPlayoffSeries[] }[]; season: string } | null> {
   const season = await getKhlCurrentSeasonId();
+  if (!season) return null;
 
-  // Fetch a 77-day window: -70 days (covers full KHL playoff run ~Feb-May) to +7 days ahead
-  // Historical days use long TTL cache, so subsequent requests are fast
-  const now = new Date();
-  const tasks: Array<() => Promise<void>> = [];
+  // ── Strategy: use season-paginated endpoints (fast, covers full playoff) ─────
+  // /events/last/0 returns most recent 30 events; /events/next/0 returns upcoming
+  // This is much more reliable than scanning 77 daily date endpoints
   const allEvents: SofascoreEvent[] = [];
 
-  for (let i = -70; i <= 7; i++) {
-    const d = new Date(now);
-    d.setDate(d.getDate() + i);
-    const date = d.toISOString().slice(0, 10);
-    const url = `https://api.sofascore.app/api/v1/sport/ice-hockey/scheduled-events/${date}`;
-    const ttl = i < 0 ? CACHE_TTL_HIST_MS : CACHE_TTL_MS;
-    tasks.push(async () => {
-      try {
-        const data = await fetchWithCache(url, SOFASCORE_HEADERS, ttl) as { events?: SofascoreEvent[] };
-        const khl = (data.events ?? []).filter(
-          (e) => KHL_TOURNAMENT_IDS.has(e.tournament?.uniqueTournament?.id ?? -1) || e.tournament?.name === "KHL",
-        );
-        allEvents.push(...khl);
-      } catch { /* skip */ }
-    });
-  }
-  await pLimit(tasks, 3);
+  const [lastData, nextData] = await Promise.all([
+    fetchWithCache(
+      `https://api.sofascore.app/api/v1/unique-tournament/268/season/${season.id}/events/last/0`,
+      SOFASCORE_HEADERS, CACHE_TTL_MS,
+    ).catch(() => ({} as Record<string, unknown>)),
+    fetchWithCache(
+      `https://api.sofascore.app/api/v1/unique-tournament/268/season/${season.id}/events/next/0`,
+      SOFASCORE_HEADERS, CACHE_TTL_MS,
+    ).catch(() => ({} as Record<string, unknown>)),
+  ]);
+
+  const lastEvts = ((lastData as { events?: SofascoreEvent[] }).events ?? []);
+  const nextEvts = ((nextData as { events?: SofascoreEvent[] }).events ?? []);
+  allEvents.push(...lastEvts, ...nextEvts);
 
   if (allEvents.length === 0) return null;
 
-  // Group ALL events by team-pair key (sorted by team ID for stability)
+  // ── Map Sofascore round names → Russian ────────────────────────────────────
+  function sofascoreRoundToRussian(name: string): string {
+    const n = (name ?? "").toLowerCase();
+    if (n.includes("round 1") || n.includes("first round") || n.includes("1/8")) return "1/8 финала";
+    if (n.includes("quarter")) return "1/4 финала";
+    if (n.includes("semi")) return "1/2 финала";
+    if (n.includes("final") || n.includes("cup") || n.includes("gagarin")) return "Кубок Гагарина";
+    return name;
+  }
+
+  // ── Build per-series data keyed by stable team-pair ───────────────────────
   type SeriesData = {
     team1: SofascoreTeam; team2: SofascoreTeam;
     team1Wins: number; team2Wins: number;
-    lastTimestamp: number;
+    firstTimestamp: number; lastTimestamp: number;
     gameCount: number;
+    roundName: string;
+    roundOrder: number; // lower = earlier round
   };
+
+  const roundOrder = (name: string): number => {
+    if (name === "1/8 финала") return 0;
+    if (name === "1/4 финала") return 1;
+    if (name === "1/2 финала") return 2;
+    if (name === "Кубок Гагарина") return 3;
+    return 99;
+  };
+
   const seriesMap = new Map<string, SeriesData>();
 
   for (const ev of allEvents) {
     const t1 = ev.homeTeam;
     const t2 = ev.awayTeam;
-    // Sort team IDs to get stable key regardless of home/away assignment
     const [a, b] = t1.id < t2.id ? [t1, t2] : [t2, t1];
     const key = `${a.id}|${b.id}`;
+    const rName = sofascoreRoundToRussian(ev.roundInfo?.name ?? "");
 
     if (!seriesMap.has(key)) {
-      seriesMap.set(key, { team1: a, team2: b, team1Wins: 0, team2Wins: 0,
-        lastTimestamp: 0, firstTimestamp: Infinity, gameCount: 0 });
+      seriesMap.set(key, {
+        team1: a, team2: b,
+        team1Wins: 0, team2Wins: 0,
+        firstTimestamp: Infinity, lastTimestamp: 0,
+        gameCount: 0,
+        roundName: rName,
+        roundOrder: roundOrder(rName),
+      });
     }
     const s = seriesMap.get(key)!;
     s.gameCount++;
     if (ev.startTimestamp > s.lastTimestamp) s.lastTimestamp = ev.startTimestamp;
     if (ev.startTimestamp < s.firstTimestamp) s.firstTimestamp = ev.startTimestamp;
+    // Update roundName if we see a more specific one
+    if (rName !== s.roundName && roundOrder(rName) !== 99) s.roundName = rName;
 
-    const finished = ev.status?.type === "finished";
+    const finished = ev.status?.type === "finished" || ev.status?.type === "ended";
     if (finished) {
       const hScore = ev.homeScore?.current ?? 0;
       const aScore = ev.awayScore?.current ?? 0;
@@ -453,64 +480,71 @@ async function fetchKhlPlayoffsFromEvents(): Promise<{ rounds: { name: string; s
     }
   }
 
-  // Keep series with at least 1 game, sort by firstTimestamp ascending (earlier = earlier round)
-  const activeSeries = Array.from(seriesMap.values())
-    .filter((s) => s.gameCount > 0)
-    .sort((a, b) => a.firstTimestamp - b.firstTimestamp)
-    .slice(0, 15);
+  const allSeries = Array.from(seriesMap.values()).filter(s => s.gameCount > 0);
 
-  if (activeSeries.length === 0) return null;
+  // ── Infer winners for series where we have incomplete data ────────────────
+  // A team that appears in a later round must have won its earlier series
+  const teamsByRound = new Map<number, Set<number>>();
+  for (const s of allSeries) {
+    if (!teamsByRound.has(s.roundOrder)) teamsByRound.set(s.roundOrder, new Set());
+    teamsByRound.get(s.roundOrder)!.add(s.team1.id);
+    teamsByRound.get(s.roundOrder)!.add(s.team2.id);
+  }
 
-  // Cluster into rounds by time gap > 5 days between consecutive series starts
-  const GAP_MS = 5 * 24 * 60 * 60 * 1000;
-  const roundGroups: typeof activeSeries[] = [];
-  let current: typeof activeSeries = [];
-  for (let i = 0; i < activeSeries.length; i++) {
-    if (i === 0) { current.push(activeSeries[i]); continue; }
-    const gap = activeSeries[i].firstTimestamp - activeSeries[i - 1].firstTimestamp;
-    if (gap > GAP_MS && current.length > 0) {
-      roundGroups.push(current);
-      current = [];
+  for (const s of allSeries) {
+    const WINS_NEEDED = s.roundOrder >= 2 ? 4 : 3; // SF/Final: BO7 (4 wins), R1/QF: BO5 (3 wins)
+    if (s.team1Wins >= WINS_NEEDED || s.team2Wins >= WINS_NEEDED) continue; // already determined
+
+    const nextRound = teamsByRound.get(s.roundOrder + 1);
+    if (!nextRound) continue; // no next round data yet
+    const t1InNext = nextRound.has(s.team1.id);
+    const t2InNext = nextRound.has(s.team2.id);
+    if (t1InNext && !t2InNext) {
+      // team1 won — set to minimum winning score (3 or 4)
+      s.team1Wins = WINS_NEEDED;
+      s.team2Wins = Math.min(s.team2Wins, WINS_NEEDED - 1);
+    } else if (t2InNext && !t1InNext) {
+      s.team2Wins = WINS_NEEDED;
+      s.team1Wins = Math.min(s.team1Wins, WINS_NEEDED - 1);
     }
-    current.push(activeSeries[i]);
-  }
-  if (current.length > 0) roundGroups.push(current);
-
-  // Name rounds based on series count (KHL: 8→1/8, 4→1/4, 2→1/2, 1→Финал)
-  function roundName(count: number, roundIdx: number, totalRounds: number): string {
-    if (count >= 7) return "1/8 финала";
-    if (count >= 4) return "1/4 финала";
-    if (count >= 2) return "1/2 финала";
-    return "Кубок Гагарина";
   }
 
-  const rounds = roundGroups.map((group, ri) => {
-    const name = roundName(group.length, ri, roundGroups.length);
-    const WINS_NEEDED = group.length <= 2 ? 4 : 3; // SF/Final: best-of-7 (4 wins); R1/QF: best-of-5 (3 wins)
-    const series: KhlPlayoffSeries[] = group.map((s, si) => {
-      const isDone = s.team1Wins >= WINS_NEEDED || s.team2Wins >= WINS_NEEDED;
-      const winnerTeam = isDone
-        ? (s.team1Wins >= WINS_NEEDED ? translateTeam(s.team1.name) : translateTeam(s.team2.name))
-        : undefined;
-      return {
-        round: name,
-        homeTeam: translateTeam(s.team1.name),
-        homeBadge: proxyImg(`https://api.sofascore.app/api/v1/team/${s.team1.id}/image`),
-        homeWins: s.team1Wins,
-        awayTeam: translateTeam(s.team2.name),
-        awayBadge: proxyImg(`https://api.sofascore.app/api/v1/team/${s.team2.id}/image`),
-        awayWins: s.team2Wins,
-        seriesLength: s.team1Wins + s.team2Wins,
-        bracketPos: si,
-        isDone,
-        winnerTeam,
-      };
+  // ── Group into rounds and sort ────────────────────────────────────────────
+  const roundMap = new Map<string, SeriesData[]>();
+  for (const s of allSeries) {
+    if (!roundMap.has(s.roundName)) roundMap.set(s.roundName, []);
+    roundMap.get(s.roundName)!.push(s);
+  }
+
+  const rounds = Array.from(roundMap.entries())
+    .sort(([, a], [, b]) => (a[0]?.roundOrder ?? 99) - (b[0]?.roundOrder ?? 99))
+    .map(([name, group]) => {
+      const WINS_NEEDED = (group[0]?.roundOrder ?? 99) >= 2 ? 4 : 3;
+      group.sort((a, b) => a.firstTimestamp - b.firstTimestamp);
+      const series: KhlPlayoffSeries[] = group.map((s, si) => {
+        const isDone = s.team1Wins >= WINS_NEEDED || s.team2Wins >= WINS_NEEDED;
+        const winnerTeam = isDone
+          ? (s.team1Wins >= WINS_NEEDED ? translateTeam(s.team1.name) : translateTeam(s.team2.name))
+          : undefined;
+        return {
+          round: name,
+          homeTeam: translateTeam(s.team1.name),
+          homeBadge: proxyImg(`https://api.sofascore.app/api/v1/team/${s.team1.id}/image`),
+          homeWins: s.team1Wins,
+          awayTeam: translateTeam(s.team2.name),
+          awayBadge: proxyImg(`https://api.sofascore.app/api/v1/team/${s.team2.id}/image`),
+          awayWins: s.team2Wins,
+          seriesLength: s.team1Wins + s.team2Wins,
+          bracketPos: si,
+          isDone,
+          winnerTeam,
+        };
+      });
+      return { name, series };
     });
-    return { name, series };
-  });
 
-  const seasonYear = season?.year ?? "25/26";
-  return { rounds, season: seasonYear };
+  if (rounds.length === 0) return null;
+  return { rounds, season: season.year };
 }
 
 // ── Generic Sofascore league standings (basketball / volleyball) ──────────────
