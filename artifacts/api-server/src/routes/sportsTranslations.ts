@@ -137,6 +137,21 @@ export const TEAM_TRANSLATIONS: Record<string, string> = {
   "VC Zenit-Kazan": "Зенит Казань",
   "Yugra-Samotlor Nizhnevartovsk": "Югра-Самотлор Нижневартовск",
   "Zenit Kazan": "Зенит Казань",
+  // api-sports.io / api-sport.ru name variants
+  "Fakel": "Факел Новый Уренгой",
+  "Zenit-Kazan": "Зенит Казань",
+  "Zenit St-Petersburg": "Зенит Санкт-Петербург",
+  "Zenit SPb": "Зенит Санкт-Петербург",
+  "Kuzbass": "Кузбасс Кемерово",
+  "Lokomotiv-Novosibirsk": "Локомотив Новосибирск",
+  "Belogorie Belgorod": "Белогорье",
+  "Enisey": "Енисей Красноярск",
+  "Gazprom Yugra": "Газпром-Югра",
+  "Dinamo Leningrad": "Динамо Ленинград",
+  "Dinamo-Ural": "Динамо-Урал Уфа",
+  "Neftyarik Orenburg": "Нефтяник Оренбург",
+  "ASK NN": "АСК Нижний Новгород",
+  "Yugra Samotlor": "Югра-Самотлор Нижневартовск",
 };
 
 export const VENUE_TRANSLATIONS: Record<string, string> = {

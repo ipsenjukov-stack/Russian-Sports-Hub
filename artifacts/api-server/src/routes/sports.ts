@@ -26,6 +26,18 @@ const VOLLEY_TOURNAMENT_ID = 1009;   // Pari Суперлига (volleyball men)
 const VTB_FALLBACK_SEASONS    = [80491, 75000, 73000, 71000, 69000, 67000, 65000, 63000, 61000, 59000];
 const VOLLEY_FALLBACK_SEASONS = [80000, 78000, 76000, 74000, 72000, 70000, 68000, 66000, 64000, 62000];
 
+// ── api-sports.ru / api-sports.io volleyball API ──────────────────────────────
+// Primary URL: api-sport.ru (Russian endpoint), fallback: api-sports.io
+const APISPORTS_VOLLEY_BASES = [
+  "https://api.api-sport.ru/volleyball",
+  "https://v1.volleyball.api-sports.io",
+];
+const APISPORTS_KEY = process.env.APISPORTS_KEY ?? "";
+// Current season year (api-sports uses start year, e.g. 2025 for 2025/26)
+const APISPORTS_VOLLEY_SEASON = 2025;
+// League ID cache: discovered once per server run
+let apiSportsVolleyLeagueId: number | null = null;
+
 // ── Cache ────────────────────────────────────────────────────────────────────
 interface CacheEntry { data: unknown; fetchedAt: number }
 const cache = new Map<string, CacheEntry>();
@@ -836,6 +848,228 @@ const RPL_SPORTSDB_ID = "4355";
 const SOFASCORE_VTB_BADGE = proxyImg(`https://api.sofascore.app/api/v1/unique-tournament/${VTB_TOURNAMENT_ID}/image/dark`);
 const SOFASCORE_VOLLEY_BADGE = "/api/sports/logos/pari-superliga.png";
 
+// ── api-sports volleyball helpers ─────────────────────────────────────────────
+async function apiSportsFetch(path: string): Promise<unknown> {
+  if (!APISPORTS_KEY) throw new Error("No APISPORTS_KEY");
+  const headers: Record<string, string> = { "x-apisports-key": APISPORTS_KEY };
+  for (const base of APISPORTS_VOLLEY_BASES) {
+    const url = `${base}${path}`;
+    try {
+      const data = await fetchWithCache(url, headers, CACHE_TTL_MS);
+      const d = data as { errors?: Record<string, unknown>; results?: number; response?: unknown[] };
+      if (d.errors && Object.keys(d.errors).length > 0) continue; // try next base
+      return data;
+    } catch { continue; }
+  }
+  throw new Error("All api-sports bases failed");
+}
+
+async function getApiSportsVolleyLeagueId(): Promise<number> {
+  if (apiSportsVolleyLeagueId !== null) return apiSportsVolleyLeagueId;
+  const data = await apiSportsFetch(
+    `/leagues?country=Russia&season=${APISPORTS_VOLLEY_SEASON}`,
+  ) as { response?: Array<{ league: { id: number; name: string }; country: { name: string } }> };
+  const leagues = data.response ?? [];
+  // Prefer "Superleague" or "Super League" for men's (women's is usually separate)
+  const superleague = leagues.find(
+    (l) => /super.?league|суперлига/i.test(l.league?.name ?? ""),
+  ) ?? leagues[0];
+  if (!superleague) throw new Error("No Russian volleyball league found");
+  apiSportsVolleyLeagueId = superleague.league.id;
+  return apiSportsVolleyLeagueId;
+}
+
+// Map api-sports status to our internal status
+function apiSportsStatusToInternal(short: string): "upcoming" | "live" | "finished" {
+  if (["FT", "AW", "AOT", "P", "WO", "AB", "Canc", "Int"].includes(short)) return "finished";
+  if (["NS", "TBD", "PST"].includes(short)) return "upcoming";
+  if (/^S\d/.test(short) || short === "LIVE") return "live"; // S1, S2, S3...
+  return "upcoming";
+}
+
+async function fetchApiSportsVolleyEvents(): Promise<unknown[]> {
+  const leagueId = await getApiSportsVolleyLeagueId();
+  const now = new Date();
+  const from = new Date(now); from.setDate(from.getDate() - 21);
+  const to   = new Date(now); to.setDate(to.getDate() + 14);
+  const fromStr = from.toISOString().slice(0, 10);
+  const toStr   = to.toISOString().slice(0, 10);
+
+  const data = await apiSportsFetch(
+    `/games?league=${leagueId}&season=${APISPORTS_VOLLEY_SEASON}&from=${fromStr}&to=${toStr}`,
+  ) as {
+    response?: Array<{
+      id: number;
+      date: string;
+      status: { long: string; short: string; timer: string | null };
+      teams: { home: { id: number; name: string; logo: string }; away: { id: number; name: string; logo: string } };
+      scores: {
+        home: { "set-1"?: number; "set-2"?: number; "set-3"?: number; "set-4"?: number; "set-5"?: number; total?: number | null };
+        away: { "set-1"?: number; "set-2"?: number; "set-3"?: number; "set-4"?: number; "set-5"?: number; total?: number | null };
+      };
+    }>
+  };
+
+  return (data.response ?? []).map((g) => {
+    const statusInternal = apiSportsStatusToInternal(g.status.short);
+    const d = new Date(g.date);
+    const homeSets = g.scores?.home?.total ?? null;
+    const awaySets = g.scores?.away?.total ?? null;
+    const isStarted = statusInternal !== "upcoming";
+
+    // Determine current set label for live games
+    let periodLabel: string | undefined;
+    if (statusInternal === "live") {
+      const setMatch = g.status.short.match(/^S(\d)/);
+      if (setMatch) periodLabel = `${setMatch[1]}-я партия`;
+      else if (g.status.short === "LIVE") periodLabel = "В игре";
+    }
+
+    return {
+      idEvent: `apisports_volley_${g.id}`,
+      strHomeTeam: translateTeam(g.teams.home.name),
+      strAwayTeam: translateTeam(g.teams.away.name),
+      strHomeTeamBadge: g.teams.home.logo || SOFASCORE_VOLLEY_BADGE,
+      strAwayTeamBadge: g.teams.away.logo || SOFASCORE_VOLLEY_BADGE,
+      intHomeScore: isStarted && homeSets !== null ? String(homeSets) : null,
+      intAwayScore: isStarted && awaySets !== null ? String(awaySets) : null,
+      dateEvent: d.toISOString().slice(0, 10),
+      strTime: d.toISOString().slice(11, 16),
+      strStatus: statusInternal,
+      strVenue: null,
+      _sport: "volleyball",
+      _leagueName: "Pari Суперлига",
+      _leagueBadge: SOFASCORE_VOLLEY_BADGE,
+      _periodLabel: periodLabel,
+      _source: "apisports",
+    };
+  });
+}
+
+type ApiSportsStandingEntry = {
+  position: number;
+  team: { id: number; name: string; logo: string };
+  games: { played: number; win: { total: number }; lose: { total: number } };
+  points: number;
+};
+
+async function fetchApiSportsVolleyStandings(): Promise<{
+  entries: Array<{ rank: number; team: string; badge: string; gp: number; w: number; d: number; l: number; gf: number; ga: number; gd: number; pts: number }>;
+  season: string; league: string;
+} | null> {
+  const leagueId = await getApiSportsVolleyLeagueId();
+  const data = await apiSportsFetch(
+    `/standings?league=${leagueId}&season=${APISPORTS_VOLLEY_SEASON}`,
+  ) as {
+    response?: Array<{
+      league: {
+        standings: ApiSportsStandingEntry[][];
+      };
+    }>
+  };
+  const resp = data.response ?? [];
+  if (!resp.length) return null;
+
+  // The standings come in group arrays — pick the largest (main group)
+  const allGroups = resp[0]?.league?.standings ?? [];
+  const mainGroup = allGroups.reduce<ApiSportsStandingEntry[] | null>(
+    (best, g) => (!best || g.length > best.length ? g : best), null,
+  );
+  if (!mainGroup?.length) return null;
+
+  const entries = mainGroup.map((r) => ({
+    rank: r.position,
+    team: translateTeam(r.team.name),
+    badge: r.team.logo || SOFASCORE_VOLLEY_BADGE,
+    gp:  r.games.played ?? 0,
+    w:   r.games.win?.total ?? 0,
+    d:   0,
+    l:   r.games.lose?.total ?? 0,
+    gf:  0,
+    ga:  0,
+    gd:  0,
+    pts: r.points ?? 0,
+  }));
+
+  return { entries, season: `${APISPORTS_VOLLEY_SEASON}/${APISPORTS_VOLLEY_SEASON + 1 - 2000}`, league: "Pari Суперлига" };
+}
+
+async function fetchApiSportsVolleyPlayoffs(): Promise<{ rounds: { name: string; series: Array<{
+  round: string; homeTeam: string; homeBadge: string; homeWins: number;
+  awayTeam: string; awayBadge: string; awayWins: number;
+  seriesLength: number; bracketPos: number; isDone: boolean; winnerTeam?: string;
+}> }[] } | null> {
+  const leagueId = await getApiSportsVolleyLeagueId();
+  // Fetch all playoff games from the season (no date filter)
+  const data = await apiSportsFetch(
+    `/games?league=${leagueId}&season=${APISPORTS_VOLLEY_SEASON}&stage=Playoffs`,
+  ) as { response?: Array<{
+    id: number; date: string;
+    status: { short: string };
+    stage: string;
+    teams: { home: { id: number; name: string; logo: string }; away: { id: number; name: string; logo: string } };
+    scores: { home: { total?: number | null }; away: { total?: number | null } };
+  }> };
+
+  const games = data.response ?? [];
+  if (!games.length) return null;
+
+  // Build series map
+  type PSeries = { home: { id: number; name: string; logo: string }; away: { id: number; name: string; logo: string }; homeW: number; awayW: number; stage: string; firstDate: number };
+  const seriesMap = new Map<string, PSeries>();
+  for (const g of games) {
+    const h = g.teams.home; const a = g.teams.away;
+    const [t1, t2] = h.id < a.id ? [h, a] : [a, h];
+    const key = `${t1.id}|${t2.id}`;
+    if (!seriesMap.has(key)) seriesMap.set(key, { home: h, away: a, homeW: 0, awayW: 0, stage: g.stage ?? "Playoff", firstDate: new Date(g.date).getTime() });
+    const s = seriesMap.get(key)!;
+    if (s.firstDate > new Date(g.date).getTime()) { s.firstDate = new Date(g.date).getTime(); s.home = h; s.away = a; }
+    if (apiSportsStatusToInternal(g.status.short) === "finished") {
+      const hSets = g.scores.home.total ?? 0;
+      const aSets = g.scores.away.total ?? 0;
+      if (hSets > aSets) s.homeW++; else if (aSets > hSets) s.awayW++;
+    }
+  }
+
+  // Group by stage
+  const stageMap = new Map<string, PSeries[]>();
+  for (const s of seriesMap.values()) {
+    if (!stageMap.has(s.stage)) stageMap.set(s.stage, []);
+    stageMap.get(s.stage)!.push(s);
+  }
+  // Sort stages roughly
+  const stageOrder = ["1/8", "Quarter", "Semi", "Final"];
+  const rounds = Array.from(stageMap.entries())
+    .sort(([a], [b]) => {
+      const ai = stageOrder.findIndex(s => a.includes(s));
+      const bi = stageOrder.findIndex(s => b.includes(s));
+      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+    })
+    .map(([stageName, seriesList]) => {
+      seriesList.sort((a, b) => a.firstDate - b.firstDate);
+      const WINS_NEEDED = /final/i.test(stageName) && !/quarter|semi|1\/4|1\/2/i.test(stageName) ? 4 : 3;
+      const series = seriesList.map((s, si) => {
+        const isDone = s.homeW >= WINS_NEEDED || s.awayW >= WINS_NEEDED;
+        return {
+          round: stageName,
+          homeTeam: translateTeam(s.home.name),
+          homeBadge: s.home.logo || SOFASCORE_VOLLEY_BADGE,
+          homeWins: s.homeW,
+          awayTeam: translateTeam(s.away.name),
+          awayBadge: s.away.logo || SOFASCORE_VOLLEY_BADGE,
+          awayWins: s.awayW,
+          seriesLength: s.homeW + s.awayW,
+          bracketPos: si,
+          isDone,
+          winnerTeam: isDone ? (s.homeW >= WINS_NEEDED ? translateTeam(s.home.name) : translateTeam(s.away.name)) : undefined,
+        };
+      });
+      return { name: stageName, series };
+    });
+
+  return rounds.length ? { rounds } : null;
+}
+
 function basketballPeriodLabel(code: number, description: string): string | undefined {
   const d = (description ?? "").toLowerCase();
   if (code === 7  || d.includes("1st quarter")) return "1-я четверть";
@@ -1012,13 +1246,16 @@ async function fetchSportsDBFallback(
 // GET /api/sports/all-matches
 router.get("/sports/all-matches", async (req, res) => {
   try {
-    const [rplBadge, hockeyEventsRaw, basketballEventsRaw, volleyballEventsRaw] = await Promise.all([
+    const [rplBadge, hockeyEventsRaw, basketballEventsRaw, apiSportsVolleyRaw, sofascoreVolleyRaw] = await Promise.all([
       fetchLeagueBadge(RPL_SPORTSDB_ID),
       fetchSofascoreHockey().catch(() => [] as unknown[]),
       fetchSofascoreScheduledSport(
         "basketball", VTB_TOURNAMENT_ID, "basketball", "Единая лига ВТБ",
         SOFASCORE_VTB_BADGE, basketballPeriodLabel,
       ).catch(() => [] as unknown[]),
+      // api-sports volleyball (primary) — requires valid APISPORTS_KEY
+      fetchApiSportsVolleyEvents().catch(() => [] as unknown[]),
+      // Sofascore volleyball (secondary, for when api-sports key is missing/invalid)
       fetchSofascoreScheduledSport(
         "volleyball", VOLLEY_TOURNAMENT_ID, "volleyball", "Pari Суперлига",
         SOFASCORE_VOLLEY_BADGE, volleyballSetLabel,
@@ -1026,17 +1263,21 @@ router.get("/sports/all-matches", async (req, res) => {
     ]);
 
     // Sofascore fallbacks via TheSportsDB when Sofascore is IP-blocked (dev env)
-    const [hockeyEvents, basketballEvents, volleyballEvents] = await Promise.all([
+    const [hockeyEvents, basketballEvents] = await Promise.all([
       hockeyEventsRaw.length > 0
         ? Promise.resolve(hockeyEventsRaw)
         : fetchSportsDBFallback("4920", "hockey", "КХЛ", proxyImg(SOFASCORE_KHL_BADGE)).catch(() => [] as unknown[]),
       basketballEventsRaw.length > 0
         ? Promise.resolve(basketballEventsRaw)
         : fetchSportsDBFallback("4476", "basketball", "Единая лига ВТБ", SOFASCORE_VTB_BADGE).catch(() => [] as unknown[]),
-      volleyballEventsRaw.length > 0
-        ? Promise.resolve(volleyballEventsRaw)
-        : fetchSportsDBFallback("4545", "volleyball", "Pari Суперлига", SOFASCORE_VOLLEY_BADGE).catch(() => [] as unknown[]),
     ]);
+
+    // Volleyball: prefer api-sports, then Sofascore, then TheSportsDB fallback
+    const volleyballEvents = apiSportsVolleyRaw.length > 0
+      ? apiSportsVolleyRaw
+      : sofascoreVolleyRaw.length > 0
+        ? sofascoreVolleyRaw
+        : await fetchSportsDBFallback("4545", "volleyball", "Pari Суперлига", SOFASCORE_VOLLEY_BADGE).catch(() => [] as unknown[]);
 
     const espnEvents = await fetchEspnFootball(rplBadge).catch(() => [] as unknown[]);
 
@@ -1228,12 +1469,29 @@ router.get("/sports/standings", async (req, res) => {
       });
     }
     if (sport === "volleyball") {
-      const result = await fetchSofascoreLeagueStandings(
+      // 1. Try api-sports.ru (primary — most complete data)
+      try {
+        const apiResult = await fetchApiSportsVolleyStandings();
+        if (apiResult?.entries?.length) {
+          // Also try to fetch playoff bracket
+          const playoffResult = await fetchApiSportsVolleyPlayoffs().catch(() => null);
+          const playoffsOut = playoffResult?.rounds ?? [];
+          return res.json({
+            league: apiResult.league, season: apiResult.season,
+            entries: apiResult.entries, playoffs: playoffsOut,
+          });
+        }
+      } catch { /* fall through */ }
+
+      // 2. Try Sofascore (secondary)
+      const sofascoreResult = await fetchSofascoreLeagueStandings(
         VOLLEY_TOURNAMENT_ID, VOLLEY_FALLBACK_SEASONS, "Pari Суперлига",
       );
-      if (result) {
-        return res.json({ league: result.league, season: result.season, entries: result.entries });
+      if (sofascoreResult) {
+        return res.json({ league: sofascoreResult.league, season: sofascoreResult.season, entries: sofascoreResult.entries });
       }
+
+      // 3. Fallback message — playoffs are on, no standings available
       return res.json({
         league: "Pari Суперлига", season: "25/26", entries: [],
         message: "Идут плей-офф — турнирная таблица временно недоступна",
