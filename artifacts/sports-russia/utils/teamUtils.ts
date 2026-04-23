@@ -34,7 +34,7 @@ const TEAM_CITY_MAP: Record<string, TeamParts> = {
   "Ахмат Грозный": { name: "Ахмат", city: "Грозный" },
   "Акрон Тольятти": { name: "Акрон", city: "Тольятти" },
   "Балтика Калининград": { name: "Балтика", city: "Калининград" },
-  "Динамо Махачкала": { name: "Динамо", city: "Махачкала" },
+  "Динамо Махачкала": { name: "Динамо\nМахачкала", city: "" },
   "Факел Воронеж": { name: "Факел", city: "Воронеж" },
   "Газовик Оренбург": { name: "Оренбург", city: "Оренбург" },
   "Краснодар": { name: "Краснодар", city: "Краснодар" },
@@ -87,6 +87,7 @@ export function splitTeamName(fullName: string): TeamParts {
 }
 
 export function abbreviateLongName(name: string, maxLength = 11): string {
+  if (name.includes("\n")) return name;
   if (name.length <= maxLength) return name;
   const words = name.trim().split(/\s+/);
   if (words.length < 2) return name;

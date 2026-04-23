@@ -154,7 +154,7 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
             <View style={styles.teamNameRow}>
               <StarButton teamName={match.homeTeam.name} sport={match.sport} />
               <View>
-                <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
+                <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={2}>
                   {abbreviateLongName(home.name)}
                 </Text>
               </View>
@@ -188,7 +188,7 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
           <View style={[styles.teamBlock, styles.awayBlock]}>
             <View style={styles.teamNameRow}>
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={1}>
+                <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={2}>
                   {abbreviateLongName(away.name)}
                 </Text>
               </View>
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
     gap: 5,
   },
-  starBtn: { justifyContent: "center", paddingHorizontal: 2 },
+  starBtn: { justifyContent: "flex-start", paddingHorizontal: 2, paddingTop: 2 },
   teamName: { fontSize: 14, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
   scoreBlock: { width: 110, alignItems: "center" },
   scoreRow: { flexDirection: "row", alignItems: "center", gap: 6 },
