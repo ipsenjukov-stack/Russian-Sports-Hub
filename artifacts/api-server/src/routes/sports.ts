@@ -20,6 +20,11 @@ const SSTATS_HT_STATUS         = 7;
 const SSTATS_FINISHED_STATUSES = new Set([8, 9, 10, 17, 18]);
 const SSTATS_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36";
 const SSTATS_HEADERS = { "User-Agent": SSTATS_UA, "Accept": "application/json" };
+const SSTATS_KEY = process.env.SSTATS_KEY ?? "";
+// Append apikey to query string when key is available
+function sstatsQs(params: string): string {
+  return SSTATS_KEY ? `${params}&apikey=${SSTATS_KEY}` : params;
+}
 
 const SOFASCORE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1";
 const SOFASCORE_HEADERS: Record<string, string> = {
@@ -283,7 +288,7 @@ function mapSstatsMatch(m: SstatsMatch, leagueBadge: string): Record<string, unk
 
 async function fetchSstatsFootballEvents(leagueBadge: string): Promise<unknown[]> {
   const qs = (extra: string) =>
-    `${SSTATS_BASE}/Games/list?LeagueId=${SSTATS_RPL_LEAGUE_ID}&TimeZone=3&${extra}`;
+    `${SSTATS_BASE}/Games/list?${sstatsQs(`LeagueId=${SSTATS_RPL_LEAGUE_ID}&TimeZone=3&${extra}`)}`;
 
   const [endedRes, upcomingRes, liveRes] = await Promise.all([
     fetch(qs("Ended=true&Limit=20&Order=-1"), { headers: SSTATS_HEADERS }),
@@ -315,7 +320,7 @@ async function fetchSstatsFootballEvents(leagueBadge: string): Promise<unknown[]
 
 async function fetchSstatsFootballStandings(): Promise<{ league: string; season: string; entries: unknown[] }> {
   // CSV endpoint returns standings sorted by team, we sort by points
-  const url = `${SSTATS_BASE}/Games/season-table?league=${SSTATS_RPL_LEAGUE_ID}&year=2025&format=csv`;
+  const url = `${SSTATS_BASE}/Games/season-table?${sstatsQs(`league=${SSTATS_RPL_LEAGUE_ID}&year=2025&format=csv`)}`;
   const r = await fetch(url, { headers: { "User-Agent": SSTATS_UA, "Accept": "text/csv" } });
   if (!r.ok) throw new Error(`sstats standings error ${r.status}`);
   const csv = await r.text();
