@@ -9,6 +9,18 @@ const THESPORTSDB_BASE = "https://www.thesportsdb.com/api/v1/json/3";
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/rus.1/scoreboard";
 const ESPN_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
+// ── sstats.net API (primary football source) ──────────────────────────────────
+const SSTATS_BASE = "https://api.sstats.net";
+const SSTATS_RPL_LEAGUE_ID = 235;        // Russian Premier League numeric ID
+const SSTATS_RPL_LS_ID    = "YacqHHdS"; // Flashscore string league ID
+const SSTATS_LOGO_BASE    = "https://media.api-sports.io/football/teams";
+// Statuses: 1,2 = Not started; 3-7,11,19 = Live; 7 = HT; 8-10,17,18 = Finished
+const SSTATS_LIVE_STATUSES     = new Set([3, 4, 5, 6, 7, 11, 19]);
+const SSTATS_HT_STATUS         = 7;
+const SSTATS_FINISHED_STATUSES = new Set([8, 9, 10, 17, 18]);
+const SSTATS_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36";
+const SSTATS_HEADERS = { "User-Agent": SSTATS_UA, "Accept": "application/json" };
+
 const SOFASCORE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1";
 const SOFASCORE_HEADERS: Record<string, string> = {
   "User-Agent": SOFASCORE_UA,
@@ -170,6 +182,194 @@ async function fetchEspnFootball(leagueBadge: string): Promise<unknown[]> {
   const url = `${ESPN_BASE}?dates=${start}-${end}&limit=300`;
   const data = (await fetchWithCache(url, { "User-Agent": ESPN_UA })) as { events?: EspnEvent[] };
   return await Promise.all((data.events ?? []).map((e) => mapEspnEvent(e, leagueBadge)));
+}
+
+// ── sstats.net football helpers ───────────────────────────────────────────────
+// Explicit ID→Russian name for RPL teams (avoids cross-sport name conflicts,
+// e.g. "Lokomotiv" = hockey Yaroslavl in generic table, but football Moscow here)
+const SSTATS_RPL_TEAM_NAMES: Record<number, string> = {
+  555:  "ЦСКА",
+  558:  "Спартак",
+  596:  "Зенит",
+  597:  "Локомотив",
+  621:  "Краснодар",
+  779:  "Ростов",
+  1079: "Крылья Советов",
+  1080: "Оренбург",
+  1083: "Рубин",
+  1085: "Ахмат",
+  1088: "Динамо",
+  2006: "Балтика",
+  2011: "Пари НН",
+  2012: "Сочи",
+  6786: "Акрон",
+  6813: "Динамо Махачкала",
+};
+
+interface SstatsTeam {
+  id: number;
+  name: string;
+  flashId?: string;
+}
+interface SstatsMatch {
+  id: number;
+  flashId?: string;
+  date: string;
+  dateUtc: number;
+  status: number;
+  statusName: string;
+  elapsed?: number;
+  homeResult: number | null;
+  awayResult: number | null;
+  homeHTResult?: number | null;
+  awayHTResult?: number | null;
+  homeTeam: SstatsTeam;
+  awayTeam: SstatsTeam;
+  roundName?: string;
+}
+
+function sstatsTeamLogo(teamId: number): string {
+  return proxyImg(`${SSTATS_LOGO_BASE}/${teamId}.png`);
+}
+
+function translateSstatsTeam(team: SstatsTeam): string {
+  return SSTATS_RPL_TEAM_NAMES[team.id] ?? translateTeam(team.name);
+}
+
+function mapSstatsMatch(m: SstatsMatch, leagueBadge: string): Record<string, unknown> {
+  const homeName = translateSstatsTeam(m.homeTeam);
+  const awayName = translateSstatsTeam(m.awayTeam);
+
+  let strStatus: string;
+  let periodLabel: string | undefined;
+  if (SSTATS_FINISHED_STATUSES.has(m.status)) {
+    strStatus = "finished";
+  } else if (SSTATS_LIVE_STATUSES.has(m.status)) {
+    strStatus = "live";
+    if (m.status === SSTATS_HT_STATUS) {
+      periodLabel = "Перерыв";
+    } else if (m.elapsed) {
+      periodLabel = `${m.elapsed}'`;
+    }
+  } else {
+    strStatus = "upcoming";
+  }
+
+  const dt = new Date(m.date);
+  const dateEvent = dt.toISOString().slice(0, 10);
+  const strTime   = dt.toISOString().slice(11, 16);
+
+  return {
+    idEvent: `sstats_${m.id}`,
+    strHomeTeam: homeName,
+    strAwayTeam: awayName,
+    strHomeTeamBadge: sstatsTeamLogo(m.homeTeam.id),
+    strAwayTeamBadge: sstatsTeamLogo(m.awayTeam.id),
+    intHomeScore: m.homeResult !== null ? String(m.homeResult) : null,
+    intAwayScore: m.awayResult !== null ? String(m.awayResult) : null,
+    dateEvent,
+    strTime,
+    strStatus,
+    strVenue: null,
+    _sport: "football",
+    _leagueName: "Российская Премьер-лига",
+    _leagueBadge: leagueBadge,
+    _espnState: strStatus === "live" ? "in" : strStatus === "finished" ? "post" : "pre",
+    _periodLabel: periodLabel,
+    _source: "sstats",
+    _roundName: m.roundName ?? null,
+  };
+}
+
+async function fetchSstatsFootballEvents(leagueBadge: string): Promise<unknown[]> {
+  const qs = (extra: string) =>
+    `${SSTATS_BASE}/Games/list?LeagueId=${SSTATS_RPL_LEAGUE_ID}&TimeZone=3&${extra}`;
+
+  const [endedRes, upcomingRes, liveRes] = await Promise.all([
+    fetch(qs("Ended=true&Limit=20&Order=-1"), { headers: SSTATS_HEADERS }),
+    fetch(qs("Upcoming=true&Limit=15"),       { headers: SSTATS_HEADERS }),
+    fetch(qs("Live=true"),                    { headers: SSTATS_HEADERS }),
+  ]);
+
+  if (!endedRes.ok && !upcomingRes.ok) throw new Error("sstats fetch failed");
+
+  const parse = async (r: Response) => {
+    try {
+      if (!r.ok) return [];
+      const j = await r.json() as { data?: SstatsMatch[] };
+      return j.data ?? [];
+    } catch { return []; }
+  };
+
+  const [ended, upcoming, live] = await Promise.all([parse(endedRes), parse(upcomingRes), parse(liveRes)]);
+
+  // Deduplicate by match id (live might overlap with ended)
+  const seen = new Set<number>();
+  const all: SstatsMatch[] = [];
+  for (const m of [...live, ...upcoming, ...ended]) {
+    if (!seen.has(m.id)) { seen.add(m.id); all.push(m); }
+  }
+
+  return all.map((m) => mapSstatsMatch(m, leagueBadge));
+}
+
+async function fetchSstatsFootballStandings(): Promise<{ league: string; season: string; entries: unknown[] }> {
+  // CSV endpoint returns standings sorted by team, we sort by points
+  const url = `${SSTATS_BASE}/Games/season-table?league=${SSTATS_RPL_LEAGUE_ID}&year=2025&format=csv`;
+  const r = await fetch(url, { headers: { "User-Agent": SSTATS_UA, "Accept": "text/csv" } });
+  if (!r.ok) throw new Error(`sstats standings error ${r.status}`);
+  const csv = await r.text();
+
+  const lines = csv.trim().split("\n");
+  if (lines.length < 2) throw new Error("Empty standings CSV");
+
+  const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
+  const idx = (name: string) => headers.findIndex((h) => h.toLowerCase().includes(name.toLowerCase()));
+
+  const iName   = idx("Team name");
+  const iId     = idx("Team Id");
+  const iGp     = idx("Total games");
+  const iW      = idx("Wins");
+  const iD      = idx("Draws");
+  const iL      = idx("Loss");
+  const iGf     = idx("Goals scored");
+  const iGa     = idx("Goals conceded");
+  const iPts    = idx("Points");
+
+  const rows = lines.slice(1).map((line) => {
+    const vals = line.split(",").map((v) => v.trim().replace(/"/g, ""));
+    const teamId = parseInt(vals[iId] ?? "0", 10);
+    const pts    = parseInt(vals[iPts] ?? "0", 10);
+    const gf     = parseInt(vals[iGf] ?? "0", 10);
+    const ga     = parseInt(vals[iGa] ?? "0", 10);
+    const teamName = SSTATS_RPL_TEAM_NAMES[teamId] ?? translateTeam(vals[iName] ?? "");
+    return {
+      _teamId: teamId,
+      _pts: pts,
+      _gf: gf,
+      team: teamName,
+      badge: sstatsTeamLogo(teamId),
+      gp:  parseInt(vals[iGp] ?? "0", 10),
+      w:   parseInt(vals[iW]  ?? "0", 10),
+      d:   parseInt(vals[iD]  ?? "0", 10),
+      l:   parseInt(vals[iL]  ?? "0", 10),
+      gf,
+      ga,
+      gd: gf - ga,
+      pts,
+    };
+  }).filter((r) => r.gp > 0);
+
+  // Sort by pts desc, then gd desc, then gf desc
+  rows.sort((a, b) => b._pts - a._pts || (b._gf - b.ga) - (a._gf - a.ga) || b._gf - a._gf);
+
+  const entries = rows.map((r, i) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _teamId, _pts, _gf, ...clean } = r;
+    return { rank: i + 1, ...clean };
+  });
+
+  return { league: "Российская Премьер-лига", season: "2025-2026", entries };
 }
 
 // ── Sofascore КХЛ helpers ─────────────────────────────────────────────────────
@@ -1279,9 +1479,18 @@ router.get("/sports/all-matches", async (req, res) => {
         ? sofascoreVolleyRaw
         : await fetchSportsDBFallback("4545", "volleyball", "Pari Суперлига", SOFASCORE_VOLLEY_BADGE).catch(() => [] as unknown[]);
 
-    const espnEvents = await fetchEspnFootball(rplBadge).catch(() => [] as unknown[]);
+    // Football: sstats.net primary, ESPN fallback
+    let footballEvents: unknown[] = [];
+    try {
+      footballEvents = await fetchSstatsFootballEvents(rplBadge);
+    } catch {
+      footballEvents = await fetchEspnFootball(rplBadge).catch(() => [] as unknown[]);
+    }
+    if (footballEvents.length === 0) {
+      footballEvents = await fetchEspnFootball(rplBadge).catch(() => [] as unknown[]);
+    }
 
-    const allEvents = [...espnEvents, ...hockeyEvents, ...basketballEvents, ...volleyballEvents];
+    const allEvents = [...footballEvents, ...hockeyEvents, ...basketballEvents, ...volleyballEvents];
 
     // Deduplicate by idEvent
     const seen = new Set<string>();
@@ -1389,6 +1598,12 @@ router.get("/sports/standings", async (req, res) => {
   const { sport = "football" } = req.query as { sport?: string };
   try {
     if (sport === "football") {
+      // Primary: sstats.net; fallback: ESPN
+      try {
+        const result = await fetchSstatsFootballStandings();
+        if (result.entries.length > 0) return res.json(result);
+      } catch { /* fall through to ESPN */ }
+
       const url = "https://site.api.espn.com/apis/v2/sports/soccer/rus.1/standings";
       const data = (await fetchWithCache(url, { "User-Agent": ESPN_UA })) as {
         children?: { name?: string; standings?: { entries?: Array<{
