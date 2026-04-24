@@ -70,7 +70,7 @@ function EventTextCell({ event, align }: { event: MatchEvent; align: "left" | "r
   const secondLine = event.type === "goal" && event.subtype === "own"
     ? "автогол"
     : event.type === "goal" && event.subtype === "missed"
-    ? "пен. мимо"
+    ? "незабитый пенальти"
     : event.type === "goal" && event.assist
     ? `↳ ${shortenName(event.assist)}`
     : null;
