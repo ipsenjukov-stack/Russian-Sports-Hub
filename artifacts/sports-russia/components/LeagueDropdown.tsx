@@ -75,7 +75,6 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
       >
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable style={[styles.sheet, { backgroundColor: colors.card, shadowColor: colors.foreground }]}>
-            <View style={[styles.sheetHandle, { backgroundColor: colors.mutedForeground }]} />
             <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Выбор лиги</Text>
 
             <FlatList
@@ -149,25 +148,18 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "flex-end",
+    justifyContent: "flex-start",
   },
   sheet: {
     maxHeight: "80%",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 12,
-    shadowOffset: { width: 0, height: -2 },
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    paddingTop: Platform.OS === "ios" ? 56 : 32,
+    paddingBottom: 8,
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 10,
-  },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 12,
-    opacity: 0.4,
   },
   sheetTitle: {
     fontSize: 16,
