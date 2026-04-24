@@ -2,6 +2,7 @@ import { Router } from "express";
 import path from "path";
 import fs from "fs";
 import { translateTeam, translateVenue } from "./sportsTranslations";
+import { PLAYER_RU_NAMES } from "./playerNames";
 
 const router = Router();
 
@@ -1764,6 +1765,11 @@ router.get("/sports/match-events", async (req, res) => {
       "Own Goal": "own",
     };
 
+    const ruName = (p: { id: number; name: string } | null | undefined): string | null => {
+      if (!p) return null;
+      return PLAYER_RU_NAMES[p.id] ?? p.name;
+    };
+
     const events = (j.data.events ?? []).map((e) => ({
       id: e.id,
       side: e.teamId === homeTeamId ? "home" : "away",
@@ -1771,9 +1777,9 @@ router.get("/sports/match-events", async (req, res) => {
       extra: e.extra ?? 0,
       type: TYPE_MAP[e.type] ?? "other",
       subtype: e.type === 1 ? (GOAL_SUBTYPES[e.name] ?? "goal") : undefined,
-      player: e.player?.name ?? null,
-      assist: e.type === 1 ? (e.assistPlayer?.name ?? null) : null,
-      outPlayer: e.type === 3 ? (e.assistPlayer?.name ?? null) : null,
+      player: ruName(e.player),
+      assist: e.type === 1 ? ruName(e.assistPlayer) : null,
+      outPlayer: e.type === 3 ? ruName(e.assistPlayer) : null,
     }));
 
     res.json({ events });

@@ -35,7 +35,6 @@ function shortenName(name: string | null): string {
 function EventIcon({ type, subtype }: { type: MatchEvent["type"]; subtype?: string }) {
   if (type === "goal") {
     if (subtype === "penalty") return <Text style={styles.icon}>⚽П</Text>;
-    if (subtype === "own")     return <Text style={styles.icon}>⚽ОГ</Text>;
     return <Text style={styles.icon}>⚽</Text>;
   }
   if (type === "yellow") return <Text style={styles.icon}>🟨</Text>;
@@ -53,6 +52,8 @@ function EventCell({ event, align }: { event: MatchEvent; align: "left" | "right
     : shortenName(event.player);
   const secondLine = event.type === "sub" && event.outPlayer
     ? `${shortenName(event.outPlayer)} ↓`
+    : event.type === "goal" && event.subtype === "own"
+    ? "автогол"
     : event.type === "goal" && event.assist
     ? `↳ ${shortenName(event.assist)}`
     : null;
