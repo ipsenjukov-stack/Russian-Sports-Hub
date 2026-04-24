@@ -37,6 +37,7 @@ export interface SportsDBEvent {
   _periodLabel?: string;
   _source?: "espn" | "sportsdb";
   _roundName?: string | null;
+  _flashId?: string | null;
 }
 
 export function mapEventToMatch(event: SportsDBEvent): Match {
@@ -126,6 +127,7 @@ export function mapEventToMatch(event: SportsDBEvent): Match {
     venue: event.strVenue || undefined,
     period: event._periodLabel,
     roundName: parseRoundName(event._roundName),
+    flashId: event._flashId ?? undefined,
   };
 }
 

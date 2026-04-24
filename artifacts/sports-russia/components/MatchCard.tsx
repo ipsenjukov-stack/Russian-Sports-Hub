@@ -11,6 +11,7 @@ import { useColors } from "@/hooks/useColors";
 import { useFavorites } from "@/context/FavoritesContext";
 import { Match, SportType } from "@/types/sports";
 import { splitTeamName, abbreviateLongName } from "@/utils/teamUtils";
+import { MatchEvents } from "@/components/MatchEvents";
 
 const SPORT_COLORS: Record<SportType, string> = {
   football: "#2ECC71",
@@ -106,10 +107,22 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
   const home = splitTeamName(match.homeTeam.name);
   const away = splitTeamName(match.awayTeam.name);
 
+  // Expandable only for football finished/live matches with flashId
+  const canExpand = match.sport === "football" && (isFinished || isLive) && !!match.flashId;
+  const [expanded, setExpanded] = React.useState(false);
+
+  function handlePress() {
+    if (canExpand) {
+      setExpanded((v) => !v);
+    } else {
+      onPress?.();
+    }
+  }
+
   return (
     <TouchableOpacity
       activeOpacity={0.85}
-      onPress={onPress}
+      onPress={handlePress}
       style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}
     >
       <View style={[styles.sportBar, { backgroundColor: sportColor }]} />
@@ -121,32 +134,42 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
               {match.league}
             </Text>
           </View>
-          {isLive && (
-            <View style={[styles.liveBadge, { backgroundColor: colors.live }]}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>LIVE</Text>
-            </View>
-          )}
-          {isStartingSoon && (
-            <View style={[styles.soonBadge, { backgroundColor: "#F39C12" }]}>
-              <View style={[styles.liveDot, { backgroundColor: "#fff" }]} />
-              <Text style={styles.liveText}>
-                {minsUntil! <= 1 ? "сейчас" : `через ${minsUntil} мин`}
-              </Text>
-            </View>
-          )}
-          {isJustStarted && (
-            <View style={[styles.soonBadge, { backgroundColor: colors.live }]}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>идёт</Text>
-            </View>
-          )}
-          {isFinished && (
-            <Text style={[styles.statusText, { color: colors.mutedForeground }]}>Завершён · {match.date}</Text>
-          )}
-          {isUpcoming && !isStartingSoon && !isJustStarted && (
-            <Text style={[styles.statusText, { color: colors.mutedForeground }]}>{match.startTime} · {match.date}</Text>
-          )}
+          <View style={styles.headerRight}>
+            {isLive && (
+              <View style={[styles.liveBadge, { backgroundColor: colors.live }]}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>LIVE</Text>
+              </View>
+            )}
+            {isStartingSoon && (
+              <View style={[styles.soonBadge, { backgroundColor: "#F39C12" }]}>
+                <View style={[styles.liveDot, { backgroundColor: "#fff" }]} />
+                <Text style={styles.liveText}>
+                  {minsUntil! <= 1 ? "сейчас" : `через ${minsUntil} мин`}
+                </Text>
+              </View>
+            )}
+            {isJustStarted && (
+              <View style={[styles.soonBadge, { backgroundColor: colors.live }]}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>идёт</Text>
+              </View>
+            )}
+            {isFinished && (
+              <Text style={[styles.statusText, { color: colors.mutedForeground }]}>Завершён · {match.date}</Text>
+            )}
+            {isUpcoming && !isStartingSoon && !isJustStarted && (
+              <Text style={[styles.statusText, { color: colors.mutedForeground }]}>{match.startTime} · {match.date}</Text>
+            )}
+            {canExpand && (
+              <Ionicons
+                name={expanded ? "chevron-up" : "chevron-down"}
+                size={14}
+                color={colors.mutedForeground}
+                style={{ marginLeft: 6 }}
+              />
+            )}
+          </View>
         </View>
 
         <View style={styles.matchRow}>
@@ -207,6 +230,14 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
           </View>
         </View>
 
+        {expanded && match.flashId && (
+          <MatchEvents
+            flashId={match.flashId}
+            homeTeamName={home.name}
+            awayTeamName={away.name}
+          />
+        )}
+
       </View>
     </TouchableOpacity>
   );
@@ -230,6 +261,10 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
+  },
+  headerRight: {
+    flexDirection: "row",
     alignItems: "center",
   },
   leagueRow: {

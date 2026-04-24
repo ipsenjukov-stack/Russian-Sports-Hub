@@ -283,6 +283,9 @@ function mapSstatsMatch(m: SstatsMatch, leagueBadge: string): Record<string, unk
     _periodLabel: periodLabel,
     _source: "sstats",
     _roundName: m.roundName ?? null,
+    _flashId: m.flashId ?? null,
+    _homeTeamId: m.homeTeam.id,
+    _awayTeamId: m.awayTeam.id,
   };
 }
 
@@ -1721,6 +1724,61 @@ router.get("/sports/standings", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to fetch standings");
     res.status(502).json({ error: "Failed to fetch standings" });
+  }
+});
+
+// GET /api/sports/match-events?flashId=xxx
+router.get("/sports/match-events", async (req, res) => {
+  const { flashId } = req.query as { flashId?: string };
+  if (!flashId || flashId.length !== 8) { res.status(400).json({ error: "Invalid flashId" }); return; }
+  try {
+    const url = `${SSTATS_BASE}/Games/${flashId}?${sstatsQs("")}`;
+    const r = await fetch(url.replace("?&", "?").replace("&&", "&"), {
+      headers: SSTATS_HEADERS,
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) { res.status(r.status).json({ error: "sstats error" }); return; }
+    const j = await r.json() as {
+      status: string;
+      data?: {
+        game?: { homeTeam?: { id: number }; awayTeam?: { id: number } };
+        events?: Array<{
+          id: number;
+          teamId: number;
+          elapsed: number;
+          extra: number | null;
+          type: number;
+          name: string;
+          player?: { id: number; name: string } | null;
+          assistPlayer?: { id: number; name: string } | null;
+        }>;
+      };
+    };
+    if (j.status !== "OK" || !j.data) { res.json({ events: [] }); return; }
+
+    const homeTeamId = j.data.game?.homeTeam?.id;
+    const TYPE_MAP: Record<number, string> = { 1: "goal", 2: "yellow", 3: "sub", 4: "red", 5: "red" };
+    const GOAL_SUBTYPES: Record<string, string> = {
+      "Normal Goal": "goal",
+      "Penalty": "penalty",
+      "Own Goal": "own",
+    };
+
+    const events = (j.data.events ?? []).map((e) => ({
+      id: e.id,
+      side: e.teamId === homeTeamId ? "home" : "away",
+      minute: e.elapsed,
+      extra: e.extra ?? 0,
+      type: TYPE_MAP[e.type] ?? "other",
+      subtype: e.type === 1 ? (GOAL_SUBTYPES[e.name] ?? "goal") : undefined,
+      player: e.player?.name ?? null,
+      assist: e.type === 1 ? (e.assistPlayer?.name ?? null) : null,
+      outPlayer: e.type === 3 ? (e.assistPlayer?.name ?? null) : null,
+    }));
+
+    res.json({ events });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
   }
 });
 
