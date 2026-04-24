@@ -26,7 +26,7 @@ import { scheduleMatchReminders, registerWithBackend, DEFAULT_NOTIF_PREFS, Notif
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [selectedLeagues, setSelectedLeagues] = useState<string[]>([]);
+  const [selectedLeagues, setSelectedLeagues] = useState<string[]>(["Российская Премьер-лига"]);
   const queryClient = useQueryClient();
   const { favorites } = useFavorites();
 
