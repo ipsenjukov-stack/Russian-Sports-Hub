@@ -12,7 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { useAllMatches } from "@/hooks/useSportsData";
-import { LeagueDropdown, ALL_LEAGUES } from "@/components/LeagueDropdown";
+import { LeagueDropdown } from "@/components/LeagueDropdown";
 import { MatchCard } from "@/components/MatchCard";
 import { SectionHeader } from "@/components/SectionHeader";
 import { LiveCounter } from "@/components/LiveCounter";
@@ -26,7 +26,7 @@ import { scheduleMatchReminders, registerWithBackend, DEFAULT_NOTIF_PREFS, Notif
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [leagueFilter, setLeagueFilter] = useState<string>(ALL_LEAGUES);
+  const [selectedLeagues, setSelectedLeagues] = useState<string[]>([]);
   const queryClient = useQueryClient();
   const { favorites } = useFavorites();
 
@@ -60,11 +60,11 @@ export default function HomeScreen() {
   const SOON_MS = 30 * 60 * 1000;
   const STARTED_RECENTLY_MS = 2 * 60 * 60 * 1000;
 
-  // Only football matches, filtered by selected league
+  // Only football matches, filtered by selected leagues (empty = all)
   const footballMatches = (allMatches || []).filter((m) => m.sport === "football");
-  const matches = leagueFilter === ALL_LEAGUES
+  const matches = selectedLeagues.length === 0
     ? footballMatches
-    : footballMatches.filter((m) => m.league === leagueFilter);
+    : footballMatches.filter((m) => selectedLeagues.includes(m.league ?? ""));
 
   const liveMatches = matches.filter((m) => m.status === "live");
 
@@ -91,7 +91,7 @@ export default function HomeScreen() {
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>Матчи</Text>
           <GearButton />
         </View>
-        <LeagueDropdown selected={leagueFilter} onSelect={setLeagueFilter} />
+        <LeagueDropdown selected={selectedLeagues} onSelect={setSelectedLeagues} />
       </View>
 
       {isLoading ? (
