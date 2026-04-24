@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -15,45 +15,28 @@ import { useColors } from "@/hooks/useColors";
 import { useAllMatches } from "@/hooks/useSportsData";
 import { useFavorites } from "@/context/FavoritesContext";
 import { MatchCard } from "@/components/MatchCard";
-import { SportFilterBar } from "@/components/SportFilterBar";
 import { SectionHeader } from "@/components/SectionHeader";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
-import { SportType } from "@/types/sports";
 
-type FilterOption = "all" | SportType;
-
-const SPORT_LABELS: Record<SportType, string> = {
-  football: "Футбол",
-  hockey: "Хоккей",
-  basketball: "Баскетбол",
-  volleyball: "Волейбол",
-};
-
-const SPORT_ICONS: Record<SportType, string> = {
+const SPORT_ICONS: Record<string, string> = {
   football: "⚽",
-  hockey: "🏒",
-  basketball: "🏀",
-  volleyball: "🏐",
 };
 
 export default function FavoritesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const [sport, setSport] = useState<FilterOption>("all");
 
   const { favorites, toggleFavorite } = useFavorites();
   const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
 
-  const sportType = sport === "all" ? undefined : sport;
-
   const favoriteMatches = (allMatches || []).filter((m) => {
-    if (sportType && m.sport !== sportType) return false;
+    if (m.sport !== "football") return false;
     return (
-      favorites.some((f) => f.name === m.homeTeam.name && f.sport === m.sport) ||
-      favorites.some((f) => f.name === m.awayTeam.name && f.sport === m.sport)
+      favorites.some((f) => f.name === m.homeTeam.name) ||
+      favorites.some((f) => f.name === m.awayTeam.name)
     );
   });
 
@@ -107,8 +90,6 @@ export default function FavoritesScreen() {
           ))}
         </ScrollView>
       )}
-
-      {favorites.length > 0 && <SportFilterBar selected={sport} onSelect={setSport} />}
 
       {isLoading ? (
         <LoadingState count={4} />

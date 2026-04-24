@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -11,18 +11,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useAllMatches } from "@/hooks/useSportsData";
 import { MatchCard } from "@/components/MatchCard";
-import { SportFilterBar } from "@/components/SportFilterBar";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
-import { SportType } from "@/types/sports";
-
-type FilterOption = "all" | SportType;
 
 export default function LiveScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [sport, setSport] = useState<FilterOption>("all");
   const pulse = useRef(new Animated.Value(1)).current;
   const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
 
@@ -37,14 +32,11 @@ export default function LiveScreen() {
     return () => animation.stop();
   }, []);
 
-  const sportType = sport === "all" ? undefined : sport;
   const liveMatches = (allMatches || []).filter(
-    (m) => m.status === "live" && (!sportType || m.sport === sportType)
+    (m) => m.status === "live" && m.sport === "football"
   );
-  // Also show today's matches (upcoming today = about to start)
   const todayMatches = (allMatches || []).filter((m) => {
-    if (m.status !== "upcoming") return false;
-    if (sportType && m.sport !== sportType) return false;
+    if (m.status !== "upcoming" || m.sport !== "football") return false;
     return m.date === "Сегодня";
   });
 
@@ -65,8 +57,6 @@ export default function LiveScreen() {
             : "Нет активных матчей"}
         </Text>
       </View>
-
-      <SportFilterBar selected={sport} onSelect={setSport} />
 
       {isLoading ? (
         <LoadingState count={4} />

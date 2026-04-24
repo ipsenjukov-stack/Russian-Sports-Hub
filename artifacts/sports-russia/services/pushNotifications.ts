@@ -202,7 +202,7 @@ export async function scheduleMatchReminders(
 export async function setupAndroidChannel(vibration = true): Promise<void> {
   if (Platform.OS !== "android") return;
   await Notifications.setNotificationChannelAsync("sports-russia", {
-    name: "Спорт России",
+    name: "Футбол России",
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: vibration ? [0, 250, 250, 250] : [],
     lightColor: "#CC0000",

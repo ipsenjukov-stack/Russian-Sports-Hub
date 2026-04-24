@@ -13,15 +13,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { useAllMatches } from "@/hooks/useSportsData";
 import { MatchCard } from "@/components/MatchCard";
-import { SportFilterBar } from "@/components/SportFilterBar";
 import { SectionHeader } from "@/components/SectionHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
-import { SportType } from "@/types/sports";
-
-type FilterOption = "all" | SportType;
 
 const DATE_FILTERS = [
   { key: "all", label: "Все" },
@@ -32,14 +28,12 @@ const DATE_FILTERS = [
 export default function ScheduleScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [sport, setSport] = useState<FilterOption>("all");
   const [dateFilter, setDateFilter] = useState("all");
   const queryClient = useQueryClient();
   const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
 
-  const sportType = sport === "all" ? undefined : sport;
   let upcoming = (allMatches || []).filter(
-    (m) => m.status === "upcoming" && (!sportType || m.sport === sportType)
+    (m) => m.status === "upcoming" && m.sport === "football"
   );
 
   if (dateFilter === "today") {
@@ -89,8 +83,6 @@ export default function ScheduleScreen() {
           })}
         </View>
       </View>
-
-      <SportFilterBar selected={sport} onSelect={setSport} />
 
       {isLoading ? (
         <LoadingState count={4} />

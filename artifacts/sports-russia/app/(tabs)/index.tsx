@@ -12,7 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { useAllMatches } from "@/hooks/useSportsData";
-import { SportFilterBar } from "@/components/SportFilterBar";
+import { LeagueDropdown, ALL_LEAGUES } from "@/components/LeagueDropdown";
 import { MatchCard } from "@/components/MatchCard";
 import { SectionHeader } from "@/components/SectionHeader";
 import { LiveCounter } from "@/components/LiveCounter";
@@ -20,22 +20,18 @@ import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
-import { SportType } from "@/types/sports";
 import { useFavorites } from "@/context/FavoritesContext";
 import { scheduleMatchReminders, registerWithBackend, DEFAULT_NOTIF_PREFS, NotifPrefs } from "@/services/pushNotifications";
-
-type FilterOption = SportType;
 
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [filter, setFilter] = useState<FilterOption>("football");
+  const [leagueFilter, setLeagueFilter] = useState<string>(ALL_LEAGUES);
   const queryClient = useQueryClient();
   const { favorites } = useFavorites();
 
   const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
 
-  // Re-register push token on every launch (token store is in-memory, resets on server restart)
   useEffect(() => {
     AsyncStorage.multiGet(["@sports_russia_notif", "@sports_russia_push_token", "@sports_russia_notif_prefs"])
       .then(([notifPair, tokenPair, prefsPair]) => {
@@ -62,24 +58,25 @@ export default function HomeScreen() {
 
   const now = Date.now();
   const SOON_MS = 30 * 60 * 1000;
-  const STARTED_RECENTLY_MS = 2 * 60 * 60 * 1000; // 2h — ESPN lag window
+  const STARTED_RECENTLY_MS = 2 * 60 * 60 * 1000;
 
-  const matches = (allMatches || []).filter((m) => m.sport === filter);
+  // Only football matches, filtered by selected league
+  const footballMatches = (allMatches || []).filter((m) => m.sport === "football");
+  const matches = leagueFilter === ALL_LEAGUES
+    ? footballMatches
+    : footballMatches.filter((m) => m.league === leagueFilter);
+
   const liveMatches = matches.filter((m) => m.status === "live");
 
-  // Matches starting within 30 min OR already started (ESPN not updated yet, within 2h)
   const startingSoonMatches = matches.filter((m) => {
     if (m.status !== "upcoming" || !m.startTimestamp) return false;
     const delta = m.startTimestamp - now;
     const startedRecently = delta < 0 && now - m.startTimestamp <= STARTED_RECENTLY_MS;
-    const startingCoon = delta >= 0 && delta <= SOON_MS;
-    return startingCoon || startedRecently;
+    const startingSoon = delta >= 0 && delta <= SOON_MS;
+    return startingSoon || startedRecently;
   }).sort((a, b) => a.startTimestamp - b.startTimestamp);
 
-  const liveAndSoonMatches = [
-    ...liveMatches,
-    ...startingSoonMatches,
-  ];
+  const liveAndSoonMatches = [...liveMatches, ...startingSoonMatches];
   const finishedMatches = matches
     .filter((m) => m.status === "finished")
     .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
@@ -91,15 +88,11 @@ export default function HomeScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <View style={styles.headerContent}>
-          <View>
-            <Text style={[styles.headerTitle, { color: colors.foreground }]}>Матчи</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.mutedForeground }]}>Лайв и результаты</Text>
-          </View>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Матчи</Text>
           <GearButton />
         </View>
+        <LeagueDropdown selected={leagueFilter} onSelect={setLeagueFilter} />
       </View>
-
-      <SportFilterBar selected={filter} onSelect={setFilter} />
 
       {isLoading ? (
         <LoadingState count={5} />
@@ -142,7 +135,6 @@ export default function HomeScreen() {
           )}
         </ScrollView>
       )}
-
     </View>
   );
 }
@@ -151,22 +143,18 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingBottom: 12,
+    paddingBottom: 4,
   },
   headerContent: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-end",
+    alignItems: "center",
     paddingHorizontal: 20,
+    marginBottom: 8,
   },
   headerTitle: {
     fontSize: 26,
     fontFamily: "Inter_700Bold",
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
   },
   scroll: { flex: 1 },
 });

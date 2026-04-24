@@ -14,6 +14,13 @@ const ESPN_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (K
 const SSTATS_BASE = "https://api.sstats.net";
 const SSTATS_RPL_LEAGUE_ID = 235;        // Russian Premier League numeric ID
 const SSTATS_RPL_LS_ID    = "YacqHHdS"; // Flashscore string league ID
+
+// All Russian football leagues to fetch
+const RUSSIAN_FOOTBALL_LEAGUES = [
+  { id: 235, name: "Российская Премьер-лига", short: "РПЛ",   year: 2025 },
+  { id: 236, name: "Футбольная национальная лига",  short: "ФНЛ",   year: 2025 },
+  { id: 237, name: "Кубок России",                  short: "Кубок", year: 2025 },
+] as const;
 const SSTATS_LOGO_BASE    = "https://media.api-sports.io/football/teams";
 // Statuses: 1,2 = Not started; 3-7,11,19 = Live; 7 = HT; 8-10,17,18 = Finished
 const SSTATS_LIVE_STATUSES     = new Set([3, 4, 5, 6, 7, 11, 19]);
@@ -242,7 +249,7 @@ function translateSstatsTeam(team: SstatsTeam): string {
   return SSTATS_RPL_TEAM_NAMES[team.id] ?? translateTeam(team.name);
 }
 
-function mapSstatsMatch(m: SstatsMatch, leagueBadge: string): Record<string, unknown> {
+function mapSstatsMatch(m: SstatsMatch, leagueName: string, leagueBadge: string): Record<string, unknown> {
   const homeName = translateSstatsTeam(m.homeTeam);
   const awayName = translateSstatsTeam(m.awayTeam);
 
@@ -278,7 +285,7 @@ function mapSstatsMatch(m: SstatsMatch, leagueBadge: string): Record<string, unk
     strStatus,
     strVenue: null,
     _sport: "football",
-    _leagueName: "Российская Премьер-лига",
+    _leagueName: leagueName,
     _leagueBadge: leagueBadge,
     _espnState: strStatus === "live" ? "in" : strStatus === "finished" ? "post" : "pre",
     _periodLabel: periodLabel,
@@ -290,17 +297,19 @@ function mapSstatsMatch(m: SstatsMatch, leagueBadge: string): Record<string, unk
   };
 }
 
-async function fetchSstatsFootballEvents(leagueBadge: string): Promise<unknown[]> {
+async function fetchSstatsLeagueEvents(
+  leagueId: number, leagueName: string, leagueBadge: string, year = 2025,
+): Promise<unknown[]> {
   const qs = (extra: string) =>
-    `${SSTATS_BASE}/Games/list?${sstatsQs(`LeagueId=${SSTATS_RPL_LEAGUE_ID}&TimeZone=3&${extra}`)}`;
+    `${SSTATS_BASE}/Games/list?${sstatsQs(`LeagueId=${leagueId}&TimeZone=3&${extra}`)}`;
 
   const [endedRes, upcomingRes, liveRes] = await Promise.all([
-    fetch(qs("Ended=true&Year=2025&Limit=250&Order=-1"), { headers: SSTATS_HEADERS }),
-    fetch(qs("Upcoming=true&Limit=15"),                  { headers: SSTATS_HEADERS }),
-    fetch(qs("Live=true"),                               { headers: SSTATS_HEADERS }),
+    fetch(qs(`Ended=true&Year=${year}&Limit=250&Order=-1`), { headers: SSTATS_HEADERS }),
+    fetch(qs("Upcoming=true&Limit=15"),                     { headers: SSTATS_HEADERS }),
+    fetch(qs("Live=true"),                                  { headers: SSTATS_HEADERS }),
   ]);
 
-  if (!endedRes.ok && !upcomingRes.ok) throw new Error("sstats fetch failed");
+  if (!endedRes.ok && !upcomingRes.ok) throw new Error(`sstats fetch failed for league ${leagueId}`);
 
   const parse = async (r: Response) => {
     try {
@@ -312,14 +321,22 @@ async function fetchSstatsFootballEvents(leagueBadge: string): Promise<unknown[]
 
   const [ended, upcoming, live] = await Promise.all([parse(endedRes), parse(upcomingRes), parse(liveRes)]);
 
-  // Deduplicate by match id (live might overlap with ended)
   const seen = new Set<number>();
   const all: SstatsMatch[] = [];
   for (const m of [...live, ...upcoming, ...ended]) {
     if (!seen.has(m.id)) { seen.add(m.id); all.push(m); }
   }
 
-  return all.map((m) => mapSstatsMatch(m, leagueBadge));
+  return all.map((m) => mapSstatsMatch(m, leagueName, leagueBadge));
+}
+
+async function fetchSstatsFootballEvents(rplBadge: string): Promise<unknown[]> {
+  const results = await Promise.allSettled(
+    RUSSIAN_FOOTBALL_LEAGUES.map((lg) =>
+      fetchSstatsLeagueEvents(lg.id, lg.name, lg.id === 235 ? rplBadge : "", lg.year)
+    )
+  );
+  return results.flatMap((r) => r.status === "fulfilled" ? r.value : []);
 }
 
 async function fetchSstatsFootballStandings(): Promise<{ league: string; season: string; entries: unknown[] }> {
@@ -1725,6 +1742,7 @@ router.get("/sports/standings", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to fetch standings");
     res.status(502).json({ error: "Failed to fetch standings" });
+    return;
   }
 });
 
