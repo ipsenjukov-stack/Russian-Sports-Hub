@@ -4,7 +4,7 @@ import {
   Text,
   TouchableOpacity,
   Modal,
-  SectionList,
+  FlatList,
   StyleSheet,
   Platform,
   Pressable,
@@ -17,11 +17,6 @@ export interface League {
   key: string;
   label: string;
   short: string;
-}
-
-interface LeagueSection {
-  title: string;
-  data: League[];
 }
 
 export const FOOTBALL_LEAGUES: League[] = [
@@ -41,29 +36,6 @@ export const FOOTBALL_LEAGUES: League[] = [
   { key: "Суперкубок России",                  label: "Суперкубок России",              short: "Суперкубок" },
   { key: "Высший дивизион. Женщины",           label: "Высший дивизион. Женщины",       short: "Женщины" },
   { key: "Первенство молодёжных команд",       label: "Первенство молодёжных команд",   short: "Молодёжь" },
-];
-
-const SECTIONS: LeagueSection[] = [
-  {
-    title: "",
-    data: [FOOTBALL_LEAGUES[0]],
-  },
-  {
-    title: "Профессиональный футбол",
-    data: FOOTBALL_LEAGUES.slice(1, 3),
-  },
-  {
-    title: "ФНЛ-2",
-    data: FOOTBALL_LEAGUES.slice(3, 7),
-  },
-  {
-    title: "ФНЛ-2А",
-    data: FOOTBALL_LEAGUES.slice(7, 12),
-  },
-  {
-    title: "Кубки и прочее",
-    data: FOOTBALL_LEAGUES.slice(12, 16),
-  },
 ];
 
 interface LeagueDropdownProps {
@@ -106,20 +78,11 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
             <View style={[styles.sheetHandle, { backgroundColor: colors.mutedForeground }]} />
             <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Выбор лиги</Text>
 
-            <SectionList
-              sections={SECTIONS}
+            <FlatList
+              data={FOOTBALL_LEAGUES}
               keyExtractor={(item) => item.key}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: Platform.OS === "ios" ? 32 : 16 }}
-              renderSectionHeader={({ section }) =>
-                section.title ? (
-                  <View style={[styles.sectionHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-                    <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
-                      {section.title}
-                    </Text>
-                  </View>
-                ) : null
-              }
               renderItem={({ item }) => {
                 const isActive = item.key === selected;
                 return (
@@ -211,18 +174,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     paddingHorizontal: 20,
     paddingBottom: 8,
-  },
-  sectionHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 4,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  sectionTitle: {
-    fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
   },
   leagueItem: {
     flexDirection: "row",
