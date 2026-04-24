@@ -1760,30 +1760,82 @@ router.get("/sports/match-events", async (req, res) => {
     };
     if (j.status !== "OK" || !j.data) { res.json({ events: [] }); return; }
 
-    // Build missed-penalty player map from Ls/GameInfo: minute -> Russian name
-    const missedPenPlayers: Record<number, string | null> = {};
+    // Ls action type constants
+    const LS_YELLOW = 1, LS_GOAL = 3, LS_PENALTY_AWARD = 5, LS_SUB_OUT = 6,
+          LS_SUB_IN = 7, LS_ASSIST = 8, LS_PENALTY_GOAL = 10, LS_PENALTY_MISS = 11;
+
+    // Build Ls index: queues per (minute:side:lsType) → [{slug, displayName}]
+    type LsPlayer = { slug: string; displayName: string };
+    const lsQueues: Record<string, LsPlayer[]> = {};
+    // Also track missed-penalty events for synthetic insertion
+    const lsMissedPens: Array<{ minute: number; side: "home" | "away"; player: LsPlayer }> = [];
+
+    const resolveSlug = (slug: string, abbrev: string | undefined): string => {
+      const id = PLAYER_SLUG_TO_ID[slug];
+      if (id && PLAYER_RU_NAMES[id]) return PLAYER_RU_NAMES[id];
+      // Fallback: format slug nicely – slug is "lastname-firstname"
+      if (abbrev) return abbrev; // e.g. "Morozov E."
+      return slug.split("-").map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
+    };
+
+    const homeTeamId = j.data.game?.homeTeam?.id;
+    const awayTeamId = j.data.game?.awayTeam?.id;
+
     if (lsResp.ok) {
       const lsJ = await lsResp.json() as {
         data?: {
           events?: Array<{
             time: number;
+            injuryTime?: number;
+            team: number; // 1=home, 2=away
             actions?: Array<{ actionType: number; playerId?: string; playerName?: string }>;
           }>;
         };
       };
+
+      // We need to know which team is home/away in Ls (team=1 or team=2)
+      // Ls team 1 = home, team 2 = away (by convention)
+      const lsSide = (team: number): "home" | "away" => team === 1 ? "home" : "away";
+
       for (const lsEv of lsJ.data?.events ?? []) {
-        const missedAction = lsEv.actions?.find((a) => a.actionType === 11); // Penalty missed
-        if (missedAction) {
-          const slug = missedAction.playerId?.split("/")?.[0] ?? "";
-          const sstatsId = PLAYER_SLUG_TO_ID[slug];
-          missedPenPlayers[lsEv.time] = sstatsId
-            ? (PLAYER_RU_NAMES[sstatsId] ?? null)
-            : null;
+        const side = lsSide(lsEv.team);
+        for (const a of lsEv.actions ?? []) {
+          const rawSlug = a.playerId?.split("/")?.[0] ?? "";
+          if (!rawSlug) continue;
+          const player: LsPlayer = { slug: rawSlug, displayName: resolveSlug(rawSlug, a.playerName) };
+
+          if (a.actionType === LS_PENALTY_MISS) {
+            lsMissedPens.push({ minute: lsEv.time, side, player });
+          } else {
+            // Map Ls type → Games type for queue keying
+            const gameType =
+              a.actionType === LS_YELLOW          ? "yellow" :
+              a.actionType === LS_GOAL            ? "goal" :
+              a.actionType === LS_PENALTY_GOAL    ? "penalty" :
+              a.actionType === LS_SUB_IN          ? "sub_in" :
+              a.actionType === LS_SUB_OUT         ? "sub_out" :
+              a.actionType === LS_ASSIST          ? "assist" : null;
+            if (gameType) {
+              const key = `${lsEv.time}:${side}:${gameType}`;
+              (lsQueues[key] ??= []).push(player);
+            }
+          }
         }
       }
     }
 
-    const homeTeamId = j.data.game?.homeTeam?.id;
+    const popLs = (minute: number, side: "home" | "away", type: string): string | null => {
+      const key = `${minute}:${side}:${type}`;
+      const q = lsQueues[key];
+      if (q && q.length > 0) return q.shift()!.displayName;
+      return null;
+    };
+
+    const ruName = (p: { id: number; name: string } | null | undefined): string | null => {
+      if (!p) return null;
+      return PLAYER_RU_NAMES[p.id] ?? p.name;
+    };
+
     const TYPE_MAP: Record<number, string> = { 1: "goal", 2: "yellow", 3: "sub", 4: "red", 5: "red" };
     const GOAL_SUBTYPES: Record<string, string> = {
       "Normal Goal": "goal",
@@ -1792,28 +1844,73 @@ router.get("/sports/match-events", async (req, res) => {
       "Missed Penalty": "missed",
     };
 
-    const ruName = (p: { id: number; name: string } | null | undefined): string | null => {
-      if (!p) return null;
-      return PLAYER_RU_NAMES[p.id] ?? p.name;
-    };
+    const gamesEvents = j.data.events ?? [];
+    // Track which missed-penalty minutes already exist in Games
+    const gamesMissedMinutes = new Set(
+      gamesEvents
+        .filter((e) => e.type === 1 && e.name === "Missed Penalty")
+        .map((e) => e.elapsed)
+    );
 
-    const events = (j.data.events ?? []).map((e) => {
+    const events = gamesEvents.map((e) => {
+      const side = e.teamId === homeTeamId ? "home" : "away";
       const subtype = e.type === 1 ? (GOAL_SUBTYPES[e.name] ?? "goal") : undefined;
-      const playerName = subtype === "missed"
-        ? (missedPenPlayers[e.elapsed] ?? ruName(e.player))
-        : ruName(e.player);
+
+      // Resolve player name: prefer sstats ID lookup, fall back to Ls queue
+      let playerName: string | null = ruName(e.player);
+      if (!playerName) {
+        if (e.type === 2) playerName = popLs(e.elapsed, side, "yellow");
+        else if (e.type === 1 && subtype === "goal")    playerName = popLs(e.elapsed, side, "goal");
+        else if (e.type === 1 && subtype === "penalty") playerName = popLs(e.elapsed, side, "penalty");
+        else if (e.type === 1 && subtype === "missed")  {
+          const mp = lsMissedPens.find((m) => m.minute === e.elapsed && m.side === side);
+          playerName = mp?.player.displayName ?? null;
+        }
+        else if (e.type === 3) playerName = popLs(e.elapsed, side, "sub_in");
+      }
+
+      let assistName: string | null = null;
+      let outPlayerName: string | null = null;
+      if (e.type === 1 && subtype !== "missed") {
+        assistName = ruName(e.assistPlayer) ?? popLs(e.elapsed, side, "assist");
+      }
+      if (e.type === 3) {
+        outPlayerName = ruName(e.assistPlayer) ?? popLs(e.elapsed, side, "sub_out");
+      }
+
       return {
         id: e.id,
-        side: e.teamId === homeTeamId ? "home" : "away",
+        side,
         minute: e.elapsed,
         extra: e.extra ?? 0,
         type: TYPE_MAP[e.type] ?? "other",
         subtype,
         player: playerName,
-        assist: e.type === 1 && subtype !== "missed" ? ruName(e.assistPlayer) : null,
-        outPlayer: e.type === 3 ? ruName(e.assistPlayer) : null,
+        assist: assistName,
+        outPlayer: outPlayerName,
       };
     });
+
+    // Add synthetic missed-penalty events from Ls that are absent in Games
+    let syntheticId = -1;
+    for (const mp of lsMissedPens) {
+      if (!gamesMissedMinutes.has(mp.minute)) {
+        events.push({
+          id: syntheticId--,
+          side: mp.side,
+          minute: mp.minute,
+          extra: 0,
+          type: "goal",
+          subtype: "missed",
+          player: mp.player.displayName,
+          assist: null,
+          outPlayer: null,
+        });
+      }
+    }
+
+    // Sort by minute
+    events.sort((a, b) => a.minute - b.minute || a.extra - b.extra);
 
     res.json({ events });
   } catch (err) {

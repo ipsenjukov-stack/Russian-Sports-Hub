@@ -188,6 +188,21 @@ export const PLAYER_RU_NAMES: Record<number, string> = {
   76866: "Аднан Рахманович",
   292703: "Лангович",
   341: "Марио Гаич",
+  // Дополнительные игроки
+  43443: "Дмитрий Воробьёв",
+  162598: "Евгений Морозов",
+  826: "Игорь Дивеев",
+  43490: "Даниил Пруцев",
+  10306: "Нино",
+  531791: "Даниил Чевардин",
+  43729: "Илья Лантратов",
+  48504: "Антон Митрюшкин",
+  53688: "Артём Тимофеев",
+  2873: "Сесар Монтес",
+  2200: "Жерзино Ньямси",
+  839: "Иван Облаков",
+  476: "Дмитрий Баринов",
+  821: "Игорь Акинфеев",
 };
 
 // Maps Flashscore player slug (e.g. "sobolev-alexander") to sstats player ID
@@ -365,4 +380,17 @@ export const PLAYER_SLUG_TO_ID: Record<string, number> = {
   "komarov-ivan": 264151,
   "ezhov-roman": 43486,
   "litvinov-vyacheslav": 43558,
+  // Дополнительные слаги
+  "vorobyev-dmitriy": 43443,
+  "morozov-evgeniy": 162598,
+  "diveyev-igor": 826,
+  "diveev-igor": 826,
+  "prutsev-danil": 43490,
+  "nino": 10306,
+  "chevardin-daniil": 531791,
+  "lantratov-ilya": 43729,
+  "mitryushkin-anton": 48504,
+  "timofeev-artem": 53688,
+  "montes-cesar": 2873,
+  "nyamsi-gerzino": 2200,
 };
