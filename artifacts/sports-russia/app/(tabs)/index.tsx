@@ -83,13 +83,6 @@ export default function HomeScreen() {
   const finishedMatches = matches
     .filter((m) => m.status === "finished")
     .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
-  const upcomingMatches = matches.filter((m) => {
-    if (m.status !== "upcoming" || !m.startTimestamp) return m.status === "upcoming";
-    const delta = m.startTimestamp - now;
-    const startedRecently = delta < 0 && now - m.startTimestamp <= STARTED_RECENTLY_MS;
-    const startingSoon = delta >= 0 && delta <= SOON_MS;
-    return !startingSoon && !startedRecently;
-  });
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
@@ -144,16 +137,7 @@ export default function HomeScreen() {
             </>
           )}
 
-          {upcomingMatches.length > 0 && (
-            <>
-              <SectionHeader title="Предстоящие" count={upcomingMatches.length} />
-              {upcomingMatches.map((match) => (
-                <MatchCard key={match.id} match={match} />
-              ))}
-            </>
-          )}
-
-          {!isLoading && matches.length === 0 && (
+          {!isLoading && liveAndSoonMatches.length === 0 && finishedMatches.length === 0 && (
             <EmptyState message="Матчи не найдены" />
           )}
         </ScrollView>
