@@ -157,6 +157,11 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
                 <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={2}>
                   {abbreviateLongName(home.name)}
                 </Text>
+                {match.sport === "football" && home.city ? (
+                  <Text style={[styles.teamCity, { color: colors.mutedForeground }]} numberOfLines={1}>
+                    {home.city}
+                  </Text>
+                ) : null}
               </View>
             </View>
           </View>
@@ -191,6 +196,11 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
                 <Text style={[styles.teamName, { color: colors.foreground }]} numberOfLines={2}>
                   {abbreviateLongName(away.name)}
                 </Text>
+                {match.sport === "football" && away.city ? (
+                  <Text style={[styles.teamCity, { color: colors.mutedForeground }]} numberOfLines={1}>
+                    {away.city}
+                  </Text>
+                ) : null}
               </View>
               <StarButton teamName={match.awayTeam.name} sport={match.sport} />
             </View>
@@ -259,6 +269,7 @@ const styles = StyleSheet.create({
   },
   starBtn: { justifyContent: "flex-start", paddingHorizontal: 2, paddingTop: 2 },
   teamName: { fontSize: 14, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
+  teamCity: { fontSize: 9, fontFamily: "Inter_400Regular", marginTop: 1 },
   scoreBlock: { width: 110, alignItems: "center" },
   scoreRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   scoreCenter: { alignItems: "center", minWidth: 46 },
