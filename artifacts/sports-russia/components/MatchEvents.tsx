@@ -27,9 +27,7 @@ function minuteLabel(min: number, extra: number): string {
 
 function shortenName(name: string | null): string {
   if (!name) return "";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0];
-  return parts.slice(0, -1).map((p) => p[0] + ".").join("") + " " + parts[parts.length - 1];
+  return name.trim();
 }
 
 function EventIcon({ type, subtype }: { type: MatchEvent["type"]; subtype?: string }) {
@@ -238,6 +236,7 @@ const styles = StyleSheet.create({
   textCell: {
     paddingHorizontal: 4,
     minHeight: 20,
+    width: "100%",
   },
   textLeft: { alignItems: "flex-start" },
   textRight: { alignItems: "flex-end" },
