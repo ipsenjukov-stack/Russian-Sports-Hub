@@ -4,7 +4,7 @@ import {
   Text,
   TouchableOpacity,
   Modal,
-  FlatList,
+  SectionList,
   StyleSheet,
   Platform,
   Pressable,
@@ -19,11 +19,51 @@ export interface League {
   short: string;
 }
 
+interface LeagueSection {
+  title: string;
+  data: League[];
+}
+
 export const FOOTBALL_LEAGUES: League[] = [
-  { key: ALL_LEAGUES,               label: "Все лиги",                    short: "Все" },
-  { key: "Российская Премьер-лига", label: "Российская Премьер-лига",     short: "РПЛ" },
-  { key: "Футбольная национальная лига", label: "Футбольная национальная лига", short: "ФНЛ" },
-  { key: "Кубок России",            label: "Кубок России",                 short: "Кубок" },
+  { key: ALL_LEAGUES,                          label: "Все лиги",                       short: "Все" },
+  { key: "Российская Премьер-лига",            label: "Российская Премьер-лига",        short: "РПЛ" },
+  { key: "Футбольная национальная лига",        label: "Футбольная национальная лига",   short: "ФНЛ" },
+  { key: "ФНЛ-2. Группа 1",                   label: "ФНЛ-2. Группа 1",               short: "ФНЛ-2/1" },
+  { key: "ФНЛ-2. Группа 2",                   label: "ФНЛ-2. Группа 2",               short: "ФНЛ-2/2" },
+  { key: "ФНЛ-2. Группа 3",                   label: "ФНЛ-2. Группа 3",               short: "ФНЛ-2/3" },
+  { key: "ФНЛ-2. Группа 4",                   label: "ФНЛ-2. Группа 4",               short: "ФНЛ-2/4" },
+  { key: "ФНЛ-2А. Дивизион А Золото",         label: "ФНЛ-2А. Дивизион А Золото",     short: "ФНЛ-2А" },
+  { key: "ФНЛ-2А. Дивизион А Серебро",        label: "ФНЛ-2А. Дивизион А Серебро",    short: "ФНЛ-2С" },
+  { key: "ФНЛ-2А. Плей-офф",                  label: "ФНЛ-2А. Плей-офф",              short: "ФНЛ-2А ПО" },
+  { key: "ФНЛ-2А. Весна Золото",              label: "ФНЛ-2А. Весна Золото",          short: "ФНЛ Весна" },
+  { key: "ФНЛ-2А. Весна Серебро",             label: "ФНЛ-2А. Весна Серебро",         short: "ФНЛ Вес.С" },
+  { key: "Кубок России",                       label: "Кубок России",                   short: "Кубок" },
+  { key: "Суперкубок России",                  label: "Суперкубок России",              short: "Суперкубок" },
+  { key: "Высший дивизион. Женщины",           label: "Высший дивизион. Женщины",       short: "Женщины" },
+  { key: "Первенство молодёжных команд",       label: "Первенство молодёжных команд",   short: "Молодёжь" },
+];
+
+const SECTIONS: LeagueSection[] = [
+  {
+    title: "",
+    data: [FOOTBALL_LEAGUES[0]],
+  },
+  {
+    title: "Профессиональный футбол",
+    data: FOOTBALL_LEAGUES.slice(1, 3),
+  },
+  {
+    title: "ФНЛ-2",
+    data: FOOTBALL_LEAGUES.slice(3, 7),
+  },
+  {
+    title: "ФНЛ-2А",
+    data: FOOTBALL_LEAGUES.slice(7, 12),
+  },
+  {
+    title: "Кубки и прочее",
+    data: FOOTBALL_LEAGUES.slice(12, 16),
+  },
 ];
 
 interface LeagueDropdownProps {
@@ -49,22 +89,37 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
         activeOpacity={0.7}
         style={[styles.trigger, { backgroundColor: colors.muted, borderColor: colors.border }]}
       >
-        <Text style={[styles.triggerText, { color: colors.foreground }]}>{current.label}</Text>
+        <Text style={[styles.triggerText, { color: colors.foreground }]} numberOfLines={1}>
+          {current.label}
+        </Text>
         <Text style={[styles.chevron, { color: colors.mutedForeground }]}>▾</Text>
       </TouchableOpacity>
 
       <Modal
         visible={open}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setOpen(false)}
       >
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable style={[styles.sheet, { backgroundColor: colors.card, shadowColor: colors.foreground }]}>
-            <Text style={[styles.sheetTitle, { color: colors.mutedForeground }]}>Выбор лиги</Text>
-            <FlatList
-              data={FOOTBALL_LEAGUES}
+            <View style={[styles.sheetHandle, { backgroundColor: colors.mutedForeground }]} />
+            <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Выбор лиги</Text>
+
+            <SectionList
+              sections={SECTIONS}
               keyExtractor={(item) => item.key}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: Platform.OS === "ios" ? 32 : 16 }}
+              renderSectionHeader={({ section }) =>
+                section.title ? (
+                  <View style={[styles.sectionHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+                    <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+                      {section.title}
+                    </Text>
+                  </View>
+                ) : null
+              }
               renderItem={({ item }) => {
                 const isActive = item.key === selected;
                 return (
@@ -85,7 +140,7 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
                     </Text>
                     <Text style={[
                       styles.leagueLabel,
-                      { color: isActive ? colors.foreground : colors.foreground },
+                      { color: colors.foreground },
                       isActive && { fontFamily: "Inter_600SemiBold" },
                     ]}>
                       {item.label}
@@ -109,6 +164,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
+    maxWidth: "75%",
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
@@ -121,6 +177,7 @@ const styles = StyleSheet.create({
   triggerText: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
+    flexShrink: 1,
   },
   chevron: {
     fontSize: 12,
@@ -132,39 +189,57 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
+    maxHeight: "80%",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingTop: 16,
-    paddingBottom: Platform.OS === "ios" ? 40 : 24,
+    paddingTop: 12,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 10,
   },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 12,
+    opacity: 0.4,
+  },
   sheetTitle: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
     paddingHorizontal: 20,
     paddingBottom: 8,
+  },
+  sectionHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   leagueItem: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 12,
   },
   leagueShort: {
-    fontSize: 13,
+    fontSize: 11,
     fontFamily: "Inter_700Bold",
-    width: 44,
+    width: 56,
   },
   leagueLabel: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Inter_400Regular",
   },
   check: {

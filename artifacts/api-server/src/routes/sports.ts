@@ -17,9 +17,21 @@ const SSTATS_RPL_LS_ID    = "YacqHHdS"; // Flashscore string league ID
 
 // All Russian football leagues to fetch
 const RUSSIAN_FOOTBALL_LEAGUES = [
-  { id: 235, name: "Российская Премьер-лига", short: "РПЛ",   year: 2025 },
-  { id: 236, name: "Футбольная национальная лига",  short: "ФНЛ",   year: 2025 },
-  { id: 237, name: "Кубок России",                  short: "Кубок", year: 2025 },
+  { id: 235, name: "Российская Премьер-лига",       year: 2025 },
+  { id: 236, name: "Футбольная национальная лига",   year: 2025 },
+  { id: 651, name: "ФНЛ-2. Группа 1",               year: 2025 },
+  { id: 652, name: "ФНЛ-2. Группа 2",               year: 2025 },
+  { id: 650, name: "ФНЛ-2. Группа 3",               year: 2025 },
+  { id: 653, name: "ФНЛ-2. Группа 4",               year: 2025 },
+  { id: 1025, name: "ФНЛ-2А. Дивизион А Золото",    year: 2025 },
+  { id: 1026, name: "ФНЛ-2А. Дивизион А Серебро",   year: 2025 },
+  { id: 1121, name: "ФНЛ-2А. Плей-офф",             year: 2025 },
+  { id: 1061, name: "ФНЛ-2А. Весна Золото",         year: 2025 },
+  { id: 1064, name: "ФНЛ-2А. Весна Серебро",        year: 2025 },
+  { id: 237, name: "Кубок России",                   year: 2025 },
+  { id: 663, name: "Суперкубок России",              year: 2025 },
+  { id: 649, name: "Высший дивизион. Женщины",       year: 2025 },
+  { id: 238, name: "Первенство молодёжных команд",   year: 2025 },
 ] as const;
 const SSTATS_LOGO_BASE    = "https://media.api-sports.io/football/teams";
 // Statuses: 1,2 = Not started; 3-7,11,19 = Live; 7 = HT; 8-10,17,18 = Finished
