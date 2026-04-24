@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   Modal,
   FlatList,
@@ -13,29 +14,31 @@ import { useColors } from "@/hooks/useColors";
 
 export const ALL_LEAGUES = "all";
 
+const CDN = "https://media.api-sports.io/football/leagues";
+
 export interface League {
   key: string;
   label: string;
-  short: string;
+  logo: string | null;
 }
 
 export const FOOTBALL_LEAGUES: League[] = [
-  { key: ALL_LEAGUES,                          label: "Все лиги",                       short: "Все" },
-  { key: "Российская Премьер-лига",            label: "Российская Премьер-лига",        short: "РПЛ" },
-  { key: "Футбольная национальная лига",        label: "Футбольная национальная лига",   short: "ФНЛ" },
-  { key: "ФНЛ-2. Группа 1",                   label: "ФНЛ-2. Группа 1",               short: "ФНЛ-2/1" },
-  { key: "ФНЛ-2. Группа 2",                   label: "ФНЛ-2. Группа 2",               short: "ФНЛ-2/2" },
-  { key: "ФНЛ-2. Группа 3",                   label: "ФНЛ-2. Группа 3",               short: "ФНЛ-2/3" },
-  { key: "ФНЛ-2. Группа 4",                   label: "ФНЛ-2. Группа 4",               short: "ФНЛ-2/4" },
-  { key: "ФНЛ-2А. Дивизион А Золото",         label: "ФНЛ-2А. Дивизион А Золото",     short: "ФНЛ-2А" },
-  { key: "ФНЛ-2А. Дивизион А Серебро",        label: "ФНЛ-2А. Дивизион А Серебро",    short: "ФНЛ-2С" },
-  { key: "ФНЛ-2А. Плей-офф",                  label: "ФНЛ-2А. Плей-офф",              short: "ФНЛ-2А ПО" },
-  { key: "ФНЛ-2А. Весна Золото",              label: "ФНЛ-2А. Весна Золото",          short: "ФНЛ Весна" },
-  { key: "ФНЛ-2А. Весна Серебро",             label: "ФНЛ-2А. Весна Серебро",         short: "ФНЛ Вес.С" },
-  { key: "Кубок России",                       label: "Кубок России",                   short: "Кубок" },
-  { key: "Суперкубок России",                  label: "Суперкубок России",              short: "Суперкубок" },
-  { key: "Высший дивизион. Женщины",           label: "Высший дивизион. Женщины",       short: "Женщины" },
-  { key: "Первенство молодёжных команд",       label: "Первенство молодёжных команд",   short: "Молодёжь" },
+  { key: ALL_LEAGUES,                          label: "Все лиги",                     logo: null },
+  { key: "Российская Премьер-лига",            label: "Российская Премьер-лига",      logo: `${CDN}/235.png` },
+  { key: "Футбольная национальная лига",        label: "Футбольная национальная лига", logo: `${CDN}/236.png` },
+  { key: "ФНЛ-2. Группа 1",                   label: "ФНЛ-2. Группа 1",             logo: `${CDN}/651.png` },
+  { key: "ФНЛ-2. Группа 2",                   label: "ФНЛ-2. Группа 2",             logo: `${CDN}/652.png` },
+  { key: "ФНЛ-2. Группа 3",                   label: "ФНЛ-2. Группа 3",             logo: `${CDN}/650.png` },
+  { key: "ФНЛ-2. Группа 4",                   label: "ФНЛ-2. Группа 4",             logo: `${CDN}/653.png` },
+  { key: "ФНЛ-2А. Дивизион А Золото",         label: "ФНЛ-2А. Дивизион А Золото",   logo: `${CDN}/1025.png` },
+  { key: "ФНЛ-2А. Дивизион А Серебро",        label: "ФНЛ-2А. Дивизион А Серебро",  logo: `${CDN}/1026.png` },
+  { key: "ФНЛ-2А. Плей-офф",                  label: "ФНЛ-2А. Плей-офф",            logo: `${CDN}/1121.png` },
+  { key: "ФНЛ-2А. Весна Золото",              label: "ФНЛ-2А. Весна Золото",        logo: `${CDN}/1061.png` },
+  { key: "ФНЛ-2А. Весна Серебро",             label: "ФНЛ-2А. Весна Серебро",       logo: `${CDN}/1064.png` },
+  { key: "Кубок России",                       label: "Кубок России",                 logo: `${CDN}/237.png` },
+  { key: "Суперкубок России",                  label: "Суперкубок России",            logo: `${CDN}/663.png` },
+  { key: "Высший дивизион. Женщины",           label: "Высший дивизион. Женщины",     logo: `${CDN}/649.png` },
+  { key: "Первенство молодёжных команд",       label: "Первенство молодёжных команд", logo: `${CDN}/238.png` },
 ];
 
 interface LeagueDropdownProps {
@@ -61,6 +64,11 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
         activeOpacity={0.7}
         style={[styles.trigger, { backgroundColor: colors.muted, borderColor: colors.border }]}
       >
+        {current.logo ? (
+          <Image source={{ uri: current.logo }} style={styles.triggerLogo} resizeMode="contain" />
+        ) : (
+          <Text style={[styles.triggerBall, { color: colors.mutedForeground }]}>⚽</Text>
+        )}
         <Text style={[styles.triggerText, { color: colors.foreground }]} numberOfLines={1}>
           {current.label}
         </Text>
@@ -94,12 +102,17 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
                       isActive && { backgroundColor: colors.muted },
                     ]}
                   >
-                    <Text style={[
-                      styles.leagueShort,
-                      { color: isActive ? colors.primary : colors.mutedForeground },
-                    ]}>
-                      {item.short}
-                    </Text>
+                    <View style={styles.logoWrap}>
+                      {item.logo ? (
+                        <Image
+                          source={{ uri: item.logo }}
+                          style={styles.leagueLogo}
+                          resizeMode="contain"
+                        />
+                      ) : (
+                        <Text style={styles.allBall}>⚽</Text>
+                      )}
+                    </View>
                     <Text style={[
                       styles.leagueLabel,
                       { color: colors.foreground },
@@ -126,15 +139,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    maxWidth: "75%",
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    maxWidth: "80%",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
     gap: 6,
     marginHorizontal: 20,
     marginBottom: 10,
     marginTop: 6,
+  },
+  triggerLogo: {
+    width: 20,
+    height: 20,
+  },
+  triggerBall: {
+    fontSize: 16,
+    lineHeight: 20,
   },
   triggerText: {
     fontSize: 14,
@@ -171,14 +192,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 12,
+    gap: 14,
   },
-  leagueShort: {
-    fontSize: 11,
-    fontFamily: "Inter_700Bold",
-    width: 56,
+  logoWrap: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  leagueLogo: {
+    width: 36,
+    height: 36,
+  },
+  allBall: {
+    fontSize: 24,
+    lineHeight: 36,
+    textAlign: "center",
   },
   leagueLabel: {
     flex: 1,
