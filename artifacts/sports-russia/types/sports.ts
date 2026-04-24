@@ -26,6 +26,7 @@ export interface Match {
   league: string;
   leagueLogo?: string;
   venue?: string;
+  roundName?: string;
 }
 
 export interface LeagueSection {

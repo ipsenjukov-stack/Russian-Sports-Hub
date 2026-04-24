@@ -36,6 +36,7 @@ export interface SportsDBEvent {
   _espnState?: "pre" | "in" | "post";
   _periodLabel?: string;
   _source?: "espn" | "sportsdb";
+  _roundName?: string | null;
 }
 
 export function mapEventToMatch(event: SportsDBEvent): Match {
@@ -124,7 +125,15 @@ export function mapEventToMatch(event: SportsDBEvent): Match {
     leagueLogo: toProxied(event._leagueBadge),
     venue: event.strVenue || undefined,
     period: event._periodLabel,
+    roundName: parseRoundName(event._roundName),
   };
+}
+
+function parseRoundName(raw?: string | null): string | undefined {
+  if (!raw) return undefined;
+  const m = raw.match(/Regular Season\s*[-–]\s*(\d+)/i);
+  if (m) return `${m[1]} тур`;
+  return raw;
 }
 
 function abbrev(name: string): string {

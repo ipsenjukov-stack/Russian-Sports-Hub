@@ -291,9 +291,9 @@ async function fetchSstatsFootballEvents(leagueBadge: string): Promise<unknown[]
     `${SSTATS_BASE}/Games/list?${sstatsQs(`LeagueId=${SSTATS_RPL_LEAGUE_ID}&TimeZone=3&${extra}`)}`;
 
   const [endedRes, upcomingRes, liveRes] = await Promise.all([
-    fetch(qs("Ended=true&Limit=20&Order=-1"), { headers: SSTATS_HEADERS }),
-    fetch(qs("Upcoming=true&Limit=15"),       { headers: SSTATS_HEADERS }),
-    fetch(qs("Live=true"),                    { headers: SSTATS_HEADERS }),
+    fetch(qs("Ended=true&Year=2025&Limit=250&Order=-1"), { headers: SSTATS_HEADERS }),
+    fetch(qs("Upcoming=true&Limit=15"),                  { headers: SSTATS_HEADERS }),
+    fetch(qs("Live=true"),                               { headers: SSTATS_HEADERS }),
   ]);
 
   if (!endedRes.ok && !upcomingRes.ok) throw new Error("sstats fetch failed");
