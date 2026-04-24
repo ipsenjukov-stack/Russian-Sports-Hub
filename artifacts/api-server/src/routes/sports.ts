@@ -2,7 +2,7 @@ import { Router } from "express";
 import path from "path";
 import fs from "fs";
 import { translateTeam, translateVenue } from "./sportsTranslations";
-import { PLAYER_RU_NAMES } from "./playerNames";
+import { PLAYER_RU_NAMES, PLAYER_SLUG_TO_ID } from "./playerNames";
 
 const router = Router();
 
@@ -1733,13 +1733,16 @@ router.get("/sports/match-events", async (req, res) => {
   const { flashId } = req.query as { flashId?: string };
   if (!flashId || flashId.length !== 8) { res.status(400).json({ error: "Invalid flashId" }); return; }
   try {
-    const url = `${SSTATS_BASE}/Games/${flashId}?${sstatsQs("")}`;
-    const r = await fetch(url.replace("?&", "?").replace("&&", "&"), {
-      headers: SSTATS_HEADERS,
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!r.ok) { res.status(r.status).json({ error: "sstats error" }); return; }
-    const j = await r.json() as {
+    const gamesUrl = `${SSTATS_BASE}/Games/${flashId}?${sstatsQs("")}`;
+    const lsUrl    = `${SSTATS_BASE}/Ls/GameInfo?Id=${flashId}&${sstatsQs("")}`;
+
+    const [gamesResp, lsResp] = await Promise.all([
+      fetch(gamesUrl.replace("?&", "?").replace("&&", "&"), { headers: SSTATS_HEADERS, signal: AbortSignal.timeout(8000) }),
+      fetch(lsUrl.replace("?&", "?").replace("&&", "&"),    { headers: SSTATS_HEADERS, signal: AbortSignal.timeout(8000) }),
+    ]);
+
+    if (!gamesResp.ok) { res.status(gamesResp.status).json({ error: "sstats error" }); return; }
+    const j = await gamesResp.json() as {
       status: string;
       data?: {
         game?: { homeTeam?: { id: number }; awayTeam?: { id: number } };
@@ -1757,12 +1760,36 @@ router.get("/sports/match-events", async (req, res) => {
     };
     if (j.status !== "OK" || !j.data) { res.json({ events: [] }); return; }
 
+    // Build missed-penalty player map from Ls/GameInfo: minute -> Russian name
+    const missedPenPlayers: Record<number, string | null> = {};
+    if (lsResp.ok) {
+      const lsJ = await lsResp.json() as {
+        data?: {
+          events?: Array<{
+            time: number;
+            actions?: Array<{ actionType: number; playerId?: string; playerName?: string }>;
+          }>;
+        };
+      };
+      for (const lsEv of lsJ.data?.events ?? []) {
+        const missedAction = lsEv.actions?.find((a) => a.actionType === 11); // Penalty missed
+        if (missedAction) {
+          const slug = missedAction.playerId?.split("/")?.[0] ?? "";
+          const sstatsId = PLAYER_SLUG_TO_ID[slug];
+          missedPenPlayers[lsEv.time] = sstatsId
+            ? (PLAYER_RU_NAMES[sstatsId] ?? null)
+            : null;
+        }
+      }
+    }
+
     const homeTeamId = j.data.game?.homeTeam?.id;
     const TYPE_MAP: Record<number, string> = { 1: "goal", 2: "yellow", 3: "sub", 4: "red", 5: "red" };
     const GOAL_SUBTYPES: Record<string, string> = {
       "Normal Goal": "goal",
       "Penalty": "penalty",
       "Own Goal": "own",
+      "Missed Penalty": "missed",
     };
 
     const ruName = (p: { id: number; name: string } | null | undefined): string | null => {
@@ -1770,17 +1797,23 @@ router.get("/sports/match-events", async (req, res) => {
       return PLAYER_RU_NAMES[p.id] ?? p.name;
     };
 
-    const events = (j.data.events ?? []).map((e) => ({
-      id: e.id,
-      side: e.teamId === homeTeamId ? "home" : "away",
-      minute: e.elapsed,
-      extra: e.extra ?? 0,
-      type: TYPE_MAP[e.type] ?? "other",
-      subtype: e.type === 1 ? (GOAL_SUBTYPES[e.name] ?? "goal") : undefined,
-      player: ruName(e.player),
-      assist: e.type === 1 ? ruName(e.assistPlayer) : null,
-      outPlayer: e.type === 3 ? ruName(e.assistPlayer) : null,
-    }));
+    const events = (j.data.events ?? []).map((e) => {
+      const subtype = e.type === 1 ? (GOAL_SUBTYPES[e.name] ?? "goal") : undefined;
+      const playerName = subtype === "missed"
+        ? (missedPenPlayers[e.elapsed] ?? ruName(e.player))
+        : ruName(e.player);
+      return {
+        id: e.id,
+        side: e.teamId === homeTeamId ? "home" : "away",
+        minute: e.elapsed,
+        extra: e.extra ?? 0,
+        type: TYPE_MAP[e.type] ?? "other",
+        subtype,
+        player: playerName,
+        assist: e.type === 1 && subtype !== "missed" ? ruName(e.assistPlayer) : null,
+        outPlayer: e.type === 3 ? ruName(e.assistPlayer) : null,
+      };
+    });
 
     res.json({ events });
   } catch (err) {

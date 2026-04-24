@@ -15,7 +15,7 @@ export interface MatchEvent {
   minute: number;
   extra: number;
   type: "goal" | "yellow" | "red" | "sub" | "other";
-  subtype?: "goal" | "penalty" | "own";
+  subtype?: "goal" | "penalty" | "own" | "missed";
   player: string | null;
   assist: string | null;
   outPlayer: string | null;
@@ -33,6 +33,7 @@ function shortenName(name: string | null): string {
 function EventIcon({ type, subtype }: { type: MatchEvent["type"]; subtype?: string }) {
   if (type === "goal") {
     if (subtype === "penalty") return <Text style={styles.icon}>⚽П</Text>;
+    if (subtype === "missed")  return <Text style={styles.icon}>🚫</Text>;
     return <Text style={styles.icon}>⚽</Text>;
   }
   if (type === "yellow") return <Text style={styles.icon}>🟨</Text>;
@@ -68,6 +69,8 @@ function EventTextCell({ event, align }: { event: MatchEvent; align: "left" | "r
 
   const secondLine = event.type === "goal" && event.subtype === "own"
     ? "автогол"
+    : event.type === "goal" && event.subtype === "missed"
+    ? "пен. мимо"
     : event.type === "goal" && event.assist
     ? `↳ ${shortenName(event.assist)}`
     : null;
