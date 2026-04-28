@@ -23,6 +23,8 @@ export interface League {
 
 export const FOOTBALL_LEAGUES: League[] = [
   { key: "Российская Премьер-лига",            label: "Российская Премьер-лига",      logo: `${CDN}/235.png` },
+  { key: "Кубок России",                       label: "Кубок России",                 logo: `${CDN}/237.png` },
+  { key: "Суперкубок России",                  label: "Суперкубок России",            logo: `${CDN}/663.png` },
   { key: "Лига PARI",                           label: "Лига PARI",                    logo: 0 },
   { key: "ФНЛ-2. Группа 1",                   label: "ФНЛ-2. Группа 1",             logo: `${CDN}/651.png` },
   { key: "ФНЛ-2. Группа 2",                   label: "ФНЛ-2. Группа 2",             logo: `${CDN}/652.png` },
@@ -33,8 +35,6 @@ export const FOOTBALL_LEAGUES: League[] = [
   { key: "ФНЛ-2А. Плей-офф",                  label: "ФНЛ-2А. Плей-офф",            logo: `${CDN}/1121.png` },
   { key: "ФНЛ-2А. Весна Золото",              label: "ФНЛ-2А. Весна Золото",        logo: `${CDN}/1061.png` },
   { key: "ФНЛ-2А. Весна Серебро",             label: "ФНЛ-2А. Весна Серебро",       logo: `${CDN}/1064.png` },
-  { key: "Кубок России",                       label: "Кубок России",                 logo: `${CDN}/237.png` },
-  { key: "Суперкубок России",                  label: "Суперкубок России",            logo: `${CDN}/663.png` },
   { key: "Высший дивизион. Женщины",           label: "Высший дивизион. Женщины",     logo: `${CDN}/649.png` },
   { key: "Первенство молодёжных команд",       label: "Первенство молодёжных команд", logo: `${CDN}/238.png` },
 ];
