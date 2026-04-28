@@ -60,12 +60,9 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
   const colors = useColors();
   const [open, setOpen] = useState(false);
 
-  const toggle = (key: string) => {
-    if (selected.includes(key)) {
-      onSelect(selected.filter((k) => k !== key));
-    } else {
-      onSelect([...selected, key]);
-    }
+  const pick = (key: string) => {
+    onSelect([key]);
+    setOpen(false);
   };
 
   const logo = triggerLogo(selected);
@@ -89,11 +86,6 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
         <Text style={[styles.triggerText, { color: colors.foreground }]} numberOfLines={1}>
           {triggerLabel(selected)}
         </Text>
-        {selected.length > 1 && (
-          <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-            <Text style={styles.badgeText}>{selected.length}</Text>
-          </View>
-        )}
         <Text style={[styles.chevron, { color: colors.mutedForeground }]}>▾</Text>
       </TouchableOpacity>
 
@@ -106,12 +98,7 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable style={[styles.sheet, { backgroundColor: colors.card, shadowColor: colors.foreground }]}>
             <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Выбор лиг</Text>
-              {selected.length > 0 && (
-                <TouchableOpacity onPress={() => onSelect([])} hitSlop={8}>
-                  <Text style={[styles.clearBtn, { color: colors.primary }]}>Сбросить</Text>
-                </TouchableOpacity>
-              )}
+              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Выбор лиги</Text>
             </View>
 
             <FlatList
@@ -123,7 +110,7 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
                 const isChecked = selected.includes(item.key);
                 return (
                   <TouchableOpacity
-                    onPress={() => toggle(item.key)}
+                    onPress={() => pick(item.key)}
                     activeOpacity={0.7}
                     style={[
                       styles.leagueItem,
@@ -151,13 +138,9 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
                     ]}>
                       {item.label}
                     </Text>
-                    <View style={[
-                      styles.checkbox,
-                      { borderColor: isChecked ? colors.primary : colors.border },
-                      isChecked && { backgroundColor: colors.primary },
-                    ]}>
+                    <View style={[styles.radio, { borderColor: isChecked ? colors.primary : colors.border }]}>
                       {isChecked && (
-                        <Text style={styles.checkmark}>✓</Text>
+                        <View style={[styles.radioDot, { backgroundColor: colors.primary }]} />
                       )}
                     </View>
                   </TouchableOpacity>
@@ -199,20 +182,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     flexShrink: 1,
   },
-  badge: {
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: "#fff",
-    fontSize: 11,
-    fontFamily: "Inter_700Bold",
-    lineHeight: 13,
-  },
   chevron: {
     fontSize: 12,
     lineHeight: 18,
@@ -244,10 +213,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Inter_700Bold",
   },
-  clearBtn: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-  },
   leagueItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -271,18 +236,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_400Regular",
   },
-  checkbox: {
+  radio: {
     width: 22,
     height: 22,
-    borderRadius: 4,
+    borderRadius: 11,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
-  checkmark: {
-    color: "#fff",
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-    lineHeight: 16,
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });
