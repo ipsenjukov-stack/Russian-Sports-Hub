@@ -35,7 +35,8 @@ const LOCAL_TEAM_LOGOS: Record<string, ReturnType<typeof require>> = {
 
 // Local league logo overrides
 const LOCAL_LEAGUE_LOGOS: Record<string, ReturnType<typeof require>> = {
-  "FONBET Кубок России": require("@/assets/images/fonbet-kubok-rossii.png"),
+  "FONBET Кубок России":        require("@/assets/images/fonbet-kubok-rossii.png"),
+  "OLIMPBET Суперкубок России": require("@/assets/images/olimpbet-superkubok-nobg.png"),
 };
 
 

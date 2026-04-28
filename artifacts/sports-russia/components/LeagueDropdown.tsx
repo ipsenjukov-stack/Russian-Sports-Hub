@@ -39,7 +39,7 @@ export interface League {
 export const FOOTBALL_LEAGUES: League[] = [
   { key: "Российская Премьер-лига",            label: "Российская Премьер-лига",      logo: `${CDN}/235.png` },
   { key: "FONBET Кубок России",                 label: "FONBET Кубок России",          logo: require("@/assets/images/fonbet-kubok-rossii.png") },
-  { key: "Суперкубок России",                  label: "Суперкубок России",            logo: `${CDN}/663.png` },
+  { key: "OLIMPBET Суперкубок России",          label: "OLIMPBET Суперкубок России",   logo: require("@/assets/images/olimpbet-superkubok-nobg.png") },
   { key: "Лига PARI",                           label: "Лига PARI",                    logo: 0 },
   { key: "Вторая лига Б. Группа 1",            label: "Вторая лига Б. Группа 1",      logo: `${CDN}/651.png` },
   { key: "Вторая лига Б. Группа 2",            label: "Вторая лига Б. Группа 2",      logo: `${CDN}/652.png` },
