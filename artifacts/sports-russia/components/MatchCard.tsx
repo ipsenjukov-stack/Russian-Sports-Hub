@@ -29,7 +29,7 @@ interface MatchCardProps {
 
 // Local logo overrides for teams whose CDN logo has a white background
 const LOCAL_TEAM_LOGOS: Record<string, ReturnType<typeof require>> = {
-  "Сочи": require("@/assets/images/team-sochi-nobg.png"),
+  "ФК Сочи": require("@/assets/images/team-sochi-nobg.png"),
 };
 
 function TeamLogo({ uri, name, size = 32 }: { uri?: string; name: string; size?: number }) {
