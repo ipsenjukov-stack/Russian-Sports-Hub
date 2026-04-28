@@ -44,7 +44,7 @@ const LOCAL_LEAGUE_LOGOS: Record<string, ReturnType<typeof require>> = {
 function TeamLogo({ uri, name, fullName, size = 32 }: { uri?: string; name: string; fullName?: string; size?: number }) {
   const [error, setError] = React.useState(false);
 
-  const localLogo = LOCAL_TEAM_LOGOS[fullName ?? name];
+  const localLogo = (fullName ? LOCAL_TEAM_LOGOS[fullName] : undefined) ?? LOCAL_TEAM_LOGOS[name];
   if (localLogo) {
     return (
       <Image
