@@ -14,6 +14,7 @@ import { splitTeamName, abbreviateLongName } from "@/utils/teamUtils";
 import { MatchEvents } from "@/components/MatchEvents";
 import { LigaPariLogo } from "@/components/LigaPariLogo";
 import { VtorayaLigaALogo } from "@/components/VtorayaLigaALogo";
+import { VtorayaLigaBLogo } from "@/components/VtorayaLigaBLogo";
 
 const SPORT_COLORS: Record<SportType, string> = {
   football: "#2ECC71",
@@ -81,6 +82,10 @@ function LeagueLogo({ uri, leagueName, size = 28 }: { uri?: string; leagueName?:
 
   if (leagueName?.startsWith("Вторая Лига А")) {
     return <VtorayaLigaALogo size={size} />;
+  }
+
+  if (leagueName?.startsWith("Вторая лига Б")) {
+    return <VtorayaLigaBLogo size={size} />;
   }
 
   return (

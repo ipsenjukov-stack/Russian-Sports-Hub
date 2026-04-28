@@ -13,6 +13,7 @@ import {
 import { useColors } from "@/hooks/useColors";
 import { LigaPariLogo } from "@/components/LigaPariLogo";
 import { VtorayaLigaALogo } from "@/components/VtorayaLigaALogo";
+import { VtorayaLigaBLogo } from "@/components/VtorayaLigaBLogo";
 
 const CDN = "https://media.api-sports.io/football/leagues";
 
@@ -78,6 +79,8 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
           <LigaPariLogo size={20} />
         ) : selected.length === 1 && selected[0].startsWith("Вторая Лига А") ? (
           <VtorayaLigaALogo size={20} />
+        ) : selected.length === 1 && selected[0].startsWith("Вторая лига Б") ? (
+          <VtorayaLigaBLogo size={20} />
         ) : logo !== null ? (
           <Image source={typeof logo === "number" ? logo : { uri: logo as string }} style={styles.triggerLogo} resizeMode="contain" />
         ) : (
@@ -123,6 +126,8 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
                         <LigaPariLogo size={36} />
                       ) : item.key.startsWith("Вторая Лига А") ? (
                         <VtorayaLigaALogo size={36} />
+                      ) : item.key.startsWith("Вторая лига Б") ? (
+                        <VtorayaLigaBLogo size={36} />
                       ) : (
                         <Image
                           source={typeof item.logo === "number" ? item.logo : { uri: item.logo as string }}
