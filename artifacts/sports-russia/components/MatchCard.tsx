@@ -13,6 +13,7 @@ import { Match, SportType } from "@/types/sports";
 import { splitTeamName, abbreviateLongName } from "@/utils/teamUtils";
 import { MatchEvents } from "@/components/MatchEvents";
 import { LigaPariLogo } from "@/components/LigaPariLogo";
+import { VtorayaLigaALogo } from "@/components/VtorayaLigaALogo";
 
 const SPORT_COLORS: Record<SportType, string> = {
   football: "#2ECC71",
@@ -60,6 +61,10 @@ function LeagueLogo({ uri, leagueName, size = 28 }: { uri?: string; leagueName?:
 
   if (leagueName === "Лига PARI") {
     return <LigaPariLogo size={size} />;
+  }
+
+  if (leagueName?.startsWith("Вторая Лига А")) {
+    return <VtorayaLigaALogo size={size} />;
   }
 
   return (

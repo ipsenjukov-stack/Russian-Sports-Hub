@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { LigaPariLogo } from "@/components/LigaPariLogo";
+import { VtorayaLigaALogo } from "@/components/VtorayaLigaALogo";
 
 const CDN = "https://media.api-sports.io/football/leagues";
 
@@ -30,11 +31,11 @@ export const FOOTBALL_LEAGUES: League[] = [
   { key: "ФНЛ-2. Группа 2",                   label: "ФНЛ-2. Группа 2",             logo: `${CDN}/652.png` },
   { key: "ФНЛ-2. Группа 3",                   label: "ФНЛ-2. Группа 3",             logo: `${CDN}/650.png` },
   { key: "ФНЛ-2. Группа 4",                   label: "ФНЛ-2. Группа 4",             logo: `${CDN}/653.png` },
-  { key: "ФНЛ-2А. Дивизион А Золото",         label: "ФНЛ-2А. Дивизион А Золото",   logo: `${CDN}/1025.png` },
-  { key: "ФНЛ-2А. Дивизион А Серебро",        label: "ФНЛ-2А. Дивизион А Серебро",  logo: `${CDN}/1026.png` },
-  { key: "ФНЛ-2А. Плей-офф",                  label: "ФНЛ-2А. Плей-офф",            logo: `${CDN}/1121.png` },
-  { key: "ФНЛ-2А. Весна Золото",              label: "ФНЛ-2А. Весна Золото",        logo: `${CDN}/1061.png` },
-  { key: "ФНЛ-2А. Весна Серебро",             label: "ФНЛ-2А. Весна Серебро",       logo: `${CDN}/1064.png` },
+  { key: "Вторая Лига А. Дивизион А Золото",  label: "Вторая Лига А. Дивизион А Золото",  logo: 1 },
+  { key: "Вторая Лига А. Дивизион А Серебро", label: "Вторая Лига А. Дивизион А Серебро", logo: 1 },
+  { key: "Вторая Лига А. Плей-офф",           label: "Вторая Лига А. Плей-офф",           logo: 1 },
+  { key: "Вторая Лига А. Весна Золото",        label: "Вторая Лига А. Весна Золото",        logo: 1 },
+  { key: "Вторая Лига А. Весна Серебро",       label: "Вторая Лига А. Весна Серебро",       logo: 1 },
   { key: "Высший дивизион. Женщины",           label: "Высший дивизион. Женщины",     logo: `${CDN}/649.png` },
   { key: "Первенство молодёжных команд",       label: "Первенство молодёжных команд", logo: `${CDN}/238.png` },
 ];
@@ -78,6 +79,8 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
       >
         {selected.length === 1 && selected[0] === "Лига PARI" ? (
           <LigaPariLogo size={20} />
+        ) : selected.length === 1 && selected[0].startsWith("Вторая Лига А") ? (
+          <VtorayaLigaALogo size={20} />
         ) : logo !== null ? (
           <Image source={typeof logo === "number" ? logo : { uri: logo as string }} style={styles.triggerLogo} resizeMode="contain" />
         ) : (
@@ -131,6 +134,8 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
                     <View style={styles.logoWrap}>
                       {item.key === "Лига PARI" ? (
                         <LigaPariLogo size={36} />
+                      ) : item.key.startsWith("Вторая Лига А") ? (
+                        <VtorayaLigaALogo size={36} />
                       ) : (
                         <Image
                           source={typeof item.logo === "number" ? item.logo : { uri: item.logo as string }}
