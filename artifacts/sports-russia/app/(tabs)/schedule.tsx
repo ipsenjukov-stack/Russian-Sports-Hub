@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -18,11 +18,12 @@ import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
+import { useLeague } from "@/context/LeagueContext";
 
 export default function ScheduleScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [selectedLeagues, setSelectedLeagues] = useState<string[]>(["Российская Премьер-лига"]);
+  const { selectedLeagues, setSelectedLeagues } = useLeague();
   const queryClient = useQueryClient();
   const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
 

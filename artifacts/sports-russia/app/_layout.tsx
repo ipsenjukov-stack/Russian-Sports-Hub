@@ -14,6 +14,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { FavoritesProvider } from "@/context/FavoritesContext";
+import { LeagueProvider } from "@/context/LeagueContext";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { setupAndroidChannel } from "@/services/pushNotifications";
@@ -55,6 +56,7 @@ export default function RootLayout() {
       <ErrorBoundary>
         <ThemeProvider>
         <QueryClientProvider client={queryClient}>
+          <LeagueProvider>
           <FavoritesProvider>
             <SettingsProvider>
               <GestureHandlerRootView>
@@ -64,6 +66,7 @@ export default function RootLayout() {
               </GestureHandlerRootView>
             </SettingsProvider>
           </FavoritesProvider>
+          </LeagueProvider>
         </QueryClientProvider>
         </ThemeProvider>
       </ErrorBoundary>

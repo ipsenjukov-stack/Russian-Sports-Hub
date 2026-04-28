@@ -16,6 +16,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
 import { LeagueDropdown } from "@/components/LeagueDropdown";
+import { useLeague } from "@/context/LeagueContext";
 
 function TeamBadge({ uri, teamName, size = 28 }: { uri: string; teamName: string; size?: number }) {
   const colors = useColors();
@@ -94,7 +95,7 @@ export default function StandingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const [selectedLeagues, setSelectedLeagues] = useState<string[]>(["Российская Премьер-лига"]);
+  const { selectedLeagues, setSelectedLeagues } = useLeague();
 
   const selectedLeague = selectedLeagues[0] ?? "Российская Премьер-лига";
   const { data, isLoading, isError, refetch } = useStandings("football", selectedLeague);

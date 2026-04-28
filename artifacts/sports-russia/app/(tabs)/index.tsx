@@ -21,12 +21,13 @@ import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
 import { useFavorites } from "@/context/FavoritesContext";
+import { useLeague } from "@/context/LeagueContext";
 import { scheduleMatchReminders, registerWithBackend, DEFAULT_NOTIF_PREFS, NotifPrefs } from "@/services/pushNotifications";
 
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [selectedLeagues, setSelectedLeagues] = useState<string[]>(["Российская Премьер-лига"]);
+  const { selectedLeagues, setSelectedLeagues } = useLeague();
   const queryClient = useQueryClient();
   const { favorites } = useFavorites();
 
