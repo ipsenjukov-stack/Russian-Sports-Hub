@@ -38,7 +38,7 @@ export interface League {
 
 export const FOOTBALL_LEAGUES: League[] = [
   { key: "Российская Премьер-лига",            label: "Российская Премьер-лига",      logo: `${CDN}/235.png` },
-  { key: "Кубок России",                       label: "Кубок России",                 logo: require("@/assets/images/kubok-rossii-nobg.png") },
+  { key: "Кубок России",                       label: "Кубок России",                 logo: `${CDN}/237.png` },
   { key: "Суперкубок России",                  label: "Суперкубок России",            logo: `${CDN}/663.png` },
   { key: "Лига PARI",                           label: "Лига PARI",                    logo: 0 },
   { key: "Вторая лига Б. Группа 1",            label: "Вторая лига Б. Группа 1",      logo: `${CDN}/651.png` },
