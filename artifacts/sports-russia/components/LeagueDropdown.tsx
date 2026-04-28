@@ -17,6 +17,19 @@ import { VtorayaLigaBLogo } from "@/components/VtorayaLigaBLogo";
 
 const CDN = "https://media.api-sports.io/football/leagues";
 
+function getApiBase(): string {
+  const domain = process.env["EXPO_PUBLIC_DOMAIN"];
+  if (domain) return `https://${domain}`;
+  if (Platform.OS === "web" && typeof window !== "undefined") return window.location.origin;
+  return "";
+}
+
+function proxyLeagueLogo(cdnUrl: string): string {
+  const base = getApiBase();
+  if (!base) return cdnUrl;
+  return `${base}/api/sports/proxy-image?url=${encodeURIComponent(cdnUrl)}`;
+}
+
 export interface League {
   key: string;
   label: string;
@@ -82,7 +95,7 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
         ) : selected.length === 1 && selected[0].startsWith("Вторая лига Б") ? (
           <VtorayaLigaBLogo size={20} />
         ) : logo !== null ? (
-          <Image source={typeof logo === "number" ? logo : { uri: logo as string }} style={styles.triggerLogo} resizeMode="contain" />
+          <Image source={typeof logo === "number" ? logo : { uri: proxyLeagueLogo(logo as string) }} style={styles.triggerLogo} resizeMode="contain" />
         ) : (
           <Text style={[styles.triggerBall, { color: colors.mutedForeground }]}>⚽</Text>
         )}
@@ -130,7 +143,7 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
                         <VtorayaLigaBLogo size={36} />
                       ) : (
                         <Image
-                          source={typeof item.logo === "number" ? item.logo : { uri: item.logo as string }}
+                          source={typeof item.logo === "number" ? item.logo : { uri: proxyLeagueLogo(item.logo as string) }}
                           style={styles.leagueLogo}
                           resizeMode="contain"
                         />
