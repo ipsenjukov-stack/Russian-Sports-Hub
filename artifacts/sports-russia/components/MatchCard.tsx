@@ -33,6 +33,11 @@ const LOCAL_TEAM_LOGOS: Record<string, ReturnType<typeof require>> = {
   "ФК Сочи": require("@/assets/images/team-sochi-nobg.png"),
 };
 
+// Local league logo overrides
+const LOCAL_LEAGUE_LOGOS: Record<string, ReturnType<typeof require>> = {
+  "Кубок России": require("@/assets/images/kubok-rossii-nobg.png"),
+};
+
 function TeamLogo({ uri, name, size = 32 }: { uri?: string; name: string; size?: number }) {
   const [error, setError] = React.useState(false);
 
@@ -86,6 +91,13 @@ function LeagueLogo({ uri, leagueName, size = 28 }: { uri?: string; leagueName?:
 
   if (leagueName?.startsWith("Вторая лига Б")) {
     return <VtorayaLigaBLogo size={size} />;
+  }
+
+  const localLeagueLogo = leagueName ? LOCAL_LEAGUE_LOGOS[leagueName] : undefined;
+  if (localLeagueLogo) {
+    return (
+      <Image source={localLeagueLogo} style={{ width: size, height: size }} resizeMode="contain" />
+    );
   }
 
   return (
