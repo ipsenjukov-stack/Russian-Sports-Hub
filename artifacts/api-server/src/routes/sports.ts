@@ -18,7 +18,7 @@ const SSTATS_RPL_LS_ID    = "YacqHHdS"; // Flashscore string league ID
 // All Russian football leagues to fetch
 const RUSSIAN_FOOTBALL_LEAGUES = [
   { id: 235, name: "Российская Премьер-лига",       year: 2025 },
-  { id: 236, name: "Футбольная национальная лига",   year: 2025 },
+  { id: 236, name: "Лига PARI",                      year: 2025 },
   { id: 651, name: "ФНЛ-2. Группа 1",               year: 2025 },
   { id: 652, name: "ФНЛ-2. Группа 2",               year: 2025 },
   { id: 650, name: "ФНЛ-2. Группа 3",               year: 2025 },

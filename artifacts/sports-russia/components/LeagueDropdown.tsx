@@ -17,12 +17,12 @@ const CDN = "https://media.api-sports.io/football/leagues";
 export interface League {
   key: string;
   label: string;
-  logo: string;
+  logo: string | number;
 }
 
 export const FOOTBALL_LEAGUES: League[] = [
   { key: "Российская Премьер-лига",            label: "Российская Премьер-лига",      logo: `${CDN}/235.png` },
-  { key: "Футбольная национальная лига",        label: "Футбольная национальная лига", logo: `${CDN}/236.png` },
+  { key: "Лига PARI",                           label: "Лига PARI",                    logo: require("../assets/images/liga-pari.png") as number },
   { key: "ФНЛ-2. Группа 1",                   label: "ФНЛ-2. Группа 1",             logo: `${CDN}/651.png` },
   { key: "ФНЛ-2. Группа 2",                   label: "ФНЛ-2. Группа 2",             logo: `${CDN}/652.png` },
   { key: "ФНЛ-2. Группа 3",                   label: "ФНЛ-2. Группа 3",             logo: `${CDN}/650.png` },
@@ -49,7 +49,7 @@ function triggerLabel(selected: string[]): string {
   return `${selected.length} лиги`;
 }
 
-function triggerLogo(selected: string[]): string | null {
+function triggerLogo(selected: string[]): string | number | null {
   if (selected.length === 1) return FOOTBALL_LEAGUES.find((l) => l.key === selected[0])?.logo ?? null;
   return null;
 }
@@ -75,8 +75,8 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
         activeOpacity={0.7}
         style={[styles.trigger, { backgroundColor: colors.muted, borderColor: colors.border }]}
       >
-        {logo ? (
-          <Image source={{ uri: logo }} style={styles.triggerLogo} resizeMode="contain" />
+        {logo !== null ? (
+          <Image source={typeof logo === "number" ? logo : { uri: logo }} style={styles.triggerLogo} resizeMode="contain" />
         ) : (
           <Text style={[styles.triggerBall, { color: colors.mutedForeground }]}>⚽</Text>
         )}
@@ -127,7 +127,7 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
                   >
                     <View style={styles.logoWrap}>
                       <Image
-                        source={{ uri: item.logo }}
+                        source={typeof item.logo === "number" ? item.logo : { uri: item.logo }}
                         style={styles.leagueLogo}
                         resizeMode="contain"
                       />
