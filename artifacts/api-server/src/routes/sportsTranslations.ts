@@ -78,6 +78,7 @@ export const TEAM_TRANSLATIONS: Record<string, string> = {
   "Rubin Kazan": "Рубин Казань",
   "Sochi": "Сочи",
   "Ufa": "Уфа",
+  "Ural": "Урал Екатеринбург",
   "Ural Yekaterinburg": "Урал Екатеринбург",
   "Zenit Saint Petersburg": "Зенит Санкт-Петербург",
   "Zenit St Petersburg": "Зенит Санкт-Петербург",
