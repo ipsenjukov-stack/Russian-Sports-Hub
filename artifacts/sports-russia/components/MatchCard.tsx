@@ -28,9 +28,10 @@ interface MatchCardProps {
   onPress?: () => void;
 }
 
-// Local logo overrides for teams whose CDN logo has a white background
+// Local logo overrides keyed by full team name (pre-split)
 const LOCAL_TEAM_LOGOS: Record<string, ReturnType<typeof require>> = {
-  "ФК Сочи": require("@/assets/images/team-sochi-nobg.png"),
+  "ФК Сочи":          require("@/assets/images/team-sochi-nobg.png"),
+  "Спартак Кострома": require("@/assets/images/team-spartak-kostroma.png"),
 };
 
 // Local league logo overrides
@@ -40,10 +41,10 @@ const LOCAL_LEAGUE_LOGOS: Record<string, ReturnType<typeof require>> = {
 };
 
 
-function TeamLogo({ uri, name, size = 32 }: { uri?: string; name: string; size?: number }) {
+function TeamLogo({ uri, name, fullName, size = 32 }: { uri?: string; name: string; fullName?: string; size?: number }) {
   const [error, setError] = React.useState(false);
 
-  const localLogo = LOCAL_TEAM_LOGOS[name];
+  const localLogo = LOCAL_TEAM_LOGOS[fullName ?? name];
   if (localLogo) {
     return (
       <Image
@@ -234,7 +235,7 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
 
           <View style={styles.scoreBlock}>
             <View style={styles.scoreRow}>
-              <TeamLogo uri={match.homeTeam.logo || undefined} name={home.name} size={28} />
+              <TeamLogo uri={match.homeTeam.logo || undefined} name={home.name} fullName={match.homeTeam.name} size={28} />
               <View style={styles.scoreCenter}>
                 {isLive || isFinished ? (
                   <>
@@ -252,7 +253,7 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
                   <Text style={[styles.vsText, { color: colors.mutedForeground }]}>vs</Text>
                 )}
               </View>
-              <TeamLogo uri={match.awayTeam.logo || undefined} name={away.name} size={28} />
+              <TeamLogo uri={match.awayTeam.logo || undefined} name={away.name} fullName={match.awayTeam.name} size={28} />
             </View>
           </View>
 
