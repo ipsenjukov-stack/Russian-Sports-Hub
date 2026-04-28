@@ -27,8 +27,24 @@ interface MatchCardProps {
   onPress?: () => void;
 }
 
+// Local logo overrides for teams whose CDN logo has a white background
+const LOCAL_TEAM_LOGOS: Record<string, ReturnType<typeof require>> = {
+  "Сочи": require("@/assets/images/team-sochi-nobg.png"),
+};
+
 function TeamLogo({ uri, name, size = 32 }: { uri?: string; name: string; size?: number }) {
   const [error, setError] = React.useState(false);
+
+  const localLogo = LOCAL_TEAM_LOGOS[name];
+  if (localLogo) {
+    return (
+      <Image
+        source={localLogo}
+        style={{ width: size, height: size }}
+        resizeMode="contain"
+      />
+    );
+  }
 
   if (uri && !error) {
     return (
