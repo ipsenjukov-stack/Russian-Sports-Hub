@@ -91,7 +91,7 @@ function LeagueLogo({ uri, leagueName, size = 28 }: { uri?: string; leagueName?:
     return <VtorayaLigaALogo size={size} />;
   }
 
-  if (leagueName?.startsWith("Вторая лига Б")) {
+  if (leagueName?.startsWith("Вторая Лига Б")) {
     return <VtorayaLigaBLogo size={size} />;
   }
 

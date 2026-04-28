@@ -41,10 +41,10 @@ export const FOOTBALL_LEAGUES: League[] = [
   { key: "FONBET Кубок России",                 label: "FONBET Кубок России",          logo: require("@/assets/images/fonbet-kubok-rossii.png") },
   { key: "OLIMPBET Суперкубок России",          label: "OLIMPBET Суперкубок России",   logo: require("@/assets/images/olimpbet-superkubok-nobg.png") },
   { key: "Лига PARI",                           label: "Лига PARI",                    logo: 0 },
-  { key: "Вторая лига Б. Группа 1",            label: "Вторая лига Б. Группа 1",      logo: `${CDN}/651.png` },
-  { key: "Вторая лига Б. Группа 2",            label: "Вторая лига Б. Группа 2",      logo: `${CDN}/652.png` },
-  { key: "Вторая лига Б. Группа 3",            label: "Вторая лига Б. Группа 3",      logo: `${CDN}/650.png` },
-  { key: "Вторая лига Б. Группа 4",            label: "Вторая лига Б. Группа 4",      logo: `${CDN}/653.png` },
+  { key: "Вторая Лига Б. Группа 1",            label: "Вторая Лига Б. Группа 1",      logo: `${CDN}/651.png` },
+  { key: "Вторая Лига Б. Группа 2",            label: "Вторая Лига Б. Группа 2",      logo: `${CDN}/652.png` },
+  { key: "Вторая Лига Б. Группа 3",            label: "Вторая Лига Б. Группа 3",      logo: `${CDN}/650.png` },
+  { key: "Вторая Лига Б. Группа 4",            label: "Вторая Лига Б. Группа 4",      logo: `${CDN}/653.png` },
   { key: "Вторая Лига А. Группа Золото",  label: "Вторая Лига А. Группа Золото",  logo: 1 },
   { key: "Вторая Лига А. Группа Серебро", label: "Вторая Лига А. Группа Серебро", logo: 1 },
   { key: "Вторая Лига А. Плей-офф",           label: "Вторая Лига А. Плей-офф",           logo: 1 },
@@ -92,7 +92,7 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
           <LigaPariLogo size={20} />
         ) : selected.length === 1 && selected[0].startsWith("Вторая Лига А") ? (
           <VtorayaLigaALogo size={20} />
-        ) : selected.length === 1 && selected[0].startsWith("Вторая лига Б") ? (
+        ) : selected.length === 1 && selected[0].startsWith("Вторая Лига Б") ? (
           <VtorayaLigaBLogo size={20} />
         ) : logo !== null ? (
           <Image source={typeof logo === "number" ? logo : { uri: proxyLeagueLogo(logo as string) }} style={styles.triggerLogo} resizeMode="contain" />
@@ -139,7 +139,7 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
                         <LigaPariLogo size={36} />
                       ) : item.key.startsWith("Вторая Лига А") ? (
                         <VtorayaLigaALogo size={36} />
-                      ) : item.key.startsWith("Вторая лига Б") ? (
+                      ) : item.key.startsWith("Вторая Лига Б") ? (
                         <VtorayaLigaBLogo size={36} />
                       ) : (
                         <Image
