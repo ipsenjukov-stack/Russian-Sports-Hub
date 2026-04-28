@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   RefreshControl,
   Platform,
 } from "react-native";
@@ -12,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import { useAllMatches } from "@/hooks/useSportsData";
+import { LeagueDropdown } from "@/components/LeagueDropdown";
 import { MatchCard } from "@/components/MatchCard";
 import { SectionHeader } from "@/components/SectionHeader";
 import { EmptyState } from "@/components/EmptyState";
@@ -19,28 +19,20 @@ import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
 
-const DATE_FILTERS = [
-  { key: "all", label: "Все" },
-  { key: "today", label: "Сегодня" },
-  { key: "tomorrow", label: "Завтра" },
-];
-
 export default function ScheduleScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [dateFilter, setDateFilter] = useState("all");
+  const [selectedLeagues, setSelectedLeagues] = useState<string[]>(["Российская Премьер-лига"]);
   const queryClient = useQueryClient();
   const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
 
-  let upcoming = (allMatches || []).filter(
+  const footballMatches = (allMatches || []).filter(
     (m) => m.status === "upcoming" && m.sport === "football"
   );
 
-  if (dateFilter === "today") {
-    upcoming = upcoming.filter((m) => m.date === "Сегодня");
-  } else if (dateFilter === "tomorrow") {
-    upcoming = upcoming.filter((m) => m.date === "Завтра");
-  }
+  const upcoming = selectedLeagues.length === 0
+    ? footballMatches
+    : footballMatches.filter((m) => selectedLeagues.includes(m.league ?? ""));
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
@@ -52,36 +44,7 @@ export default function ScheduleScreen() {
           <Text style={[styles.title, { color: colors.foreground }]}>Расписание</Text>
           <GearButton />
         </View>
-        <View style={styles.dateFilters}>
-          {DATE_FILTERS.map((df) => {
-            const isActive = dateFilter === df.key;
-            return (
-              <TouchableOpacity
-                key={df.key}
-                onPress={() => setDateFilter(df.key)}
-                style={[
-                  styles.datePill,
-                  {
-                    backgroundColor: isActive ? colors.primary : colors.muted,
-                    borderRadius: 20,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.datePillText,
-                    {
-                      color: isActive ? "#fff" : colors.mutedForeground,
-                      fontFamily: isActive ? "Inter_600SemiBold" : "Inter_400Regular",
-                    },
-                  ]}
-                >
-                  {df.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <LeagueDropdown selected={selectedLeagues} onSelect={setSelectedLeagues} />
       </View>
 
       {isLoading ? (
@@ -133,17 +96,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontFamily: "Inter_700Bold",
-  },
-  dateFilters: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  datePill: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  datePillText: {
-    fontSize: 13,
   },
   scroll: { flex: 1 },
 });

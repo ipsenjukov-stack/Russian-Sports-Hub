@@ -57,9 +57,12 @@ function absUrl(url: string | undefined | null, base: string): string {
   return url;
 }
 
-async function fetchStandings(sport: string): Promise<StandingsData> {
+async function fetchStandings(sport: string, league?: string): Promise<StandingsData> {
   const base = getApiBase();
-  const res = await fetch(`${base}/api/sports/standings?sport=${sport}`);
+  const url = league
+    ? `${base}/api/sports/standings?league=${encodeURIComponent(league)}`
+    : `${base}/api/sports/standings?sport=${sport}`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error("standings fetch failed");
   const data = await res.json() as StandingsData;
 
@@ -78,10 +81,10 @@ async function fetchStandings(sport: string): Promise<StandingsData> {
   return data;
 }
 
-export function useStandings(sport: string) {
+export function useStandings(sport: string, league?: string) {
   return useQuery<StandingsData>({
-    queryKey: ["standings", sport],
-    queryFn: () => fetchStandings(sport),
+    queryKey: ["standings", league ?? sport],
+    queryFn: () => fetchStandings(sport, league),
     staleTime: 30 * 60 * 1000,
     retry: 1,
   });

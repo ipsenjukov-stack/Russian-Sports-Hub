@@ -5,7 +5,6 @@ import {
   ScrollView,
   StyleSheet,
   Image,
-  TouchableOpacity,
   Platform,
   RefreshControl,
 } from "react-native";
@@ -15,22 +14,8 @@ import { useColors } from "@/hooks/useColors";
 import { useStandings, StandingEntry } from "@/hooks/useSportsData";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
-import { KhlStandingsView } from "@/components/KhlStandingsView";
 import { GearButton } from "@/components/GearButton";
-
-const SPORTS = [
-  { key: "football", label: "Футбол" },
-  { key: "hockey", label: "Хоккей" },
-  { key: "basketball", label: "Баскетбол" },
-  { key: "volleyball", label: "Волейбол" },
-];
-
-const LEAGUE_NAMES: Record<string, string> = {
-  football: "Российская Премьер-лига",
-  hockey: "КХЛ",
-  basketball: "Единая лига ВТБ",
-  volleyball: "Суперлига",
-};
+import { LeagueDropdown } from "@/components/LeagueDropdown";
 
 function TeamBadge({ uri, teamName, size = 28 }: { uri: string; teamName: string; size?: number }) {
   const colors = useColors();
@@ -58,13 +43,8 @@ function TeamBadge({ uri, teamName, size = 28 }: { uri: string; teamName: string
   );
 }
 
-function StandingsTable({ entries, sport, colors }: { entries: StandingEntry[]; sport: string; colors: ReturnType<typeof useColors> }) {
-  const isBasketball = sport === "basketball";
-  const isVolleyball = sport === "volleyball";
-  const isSimpleSport = isBasketball || isVolleyball;
-  const cols = isSimpleSport
-    ? ["И", "В", "П", "О"]
-    : ["М", "ЗГ", "ПГ", "РМ", "О"];
+function StandingsTable({ entries, colors }: { entries: StandingEntry[]; colors: ReturnType<typeof useColors> }) {
+  const cols = ["М", "ЗГ", "ПГ", "РМ", "О"];
   return (
     <View style={styles.table}>
       <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
@@ -97,20 +77,11 @@ function StandingsTable({ entries, sport, colors }: { entries: StandingEntry[]; 
               </Text>
             </View>
             <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gp}</Text>
-            {isSimpleSport ? (
-              <>
-                <Text style={[styles.statCell, { color: colors.live }]}>{e.w}</Text>
-                <Text style={[styles.statCell, { color: "#e53e3e" }]}>{e.l}</Text>
-              </>
-            ) : (
-              <>
-                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gf}</Text>
-                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.ga}</Text>
-                <Text style={[styles.statCell, { color: e.gd > 0 ? colors.live : e.gd < 0 ? "#e53e3e" : colors.mutedForeground }]}>
-                  {e.gd > 0 ? `+${e.gd}` : e.gd}
-                </Text>
-              </>
-            )}
+            <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gf}</Text>
+            <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.ga}</Text>
+            <Text style={[styles.statCell, { color: e.gd > 0 ? colors.live : e.gd < 0 ? "#e53e3e" : colors.mutedForeground }]}>
+              {e.gd > 0 ? `+${e.gd}` : e.gd}
+            </Text>
             <Text style={[styles.statCell, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>{e.pts}</Text>
           </View>
         );
@@ -123,84 +94,40 @@ export default function StandingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const [sport, setSport] = useState("football");
-  const { data, isLoading, isError, refetch } = useStandings(sport);
+  const [selectedLeagues, setSelectedLeagues] = useState<string[]>(["Российская Премьер-лига"]);
+
+  const selectedLeague = selectedLeagues[0] ?? "Российская Премьер-лига";
+  const { data, isLoading, isError, refetch } = useStandings("football", selectedLeague);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
 
-  const isHockey = sport === "hockey";
-  const hasHockeyData =
-    isHockey &&
-    !isLoading &&
-    !isError &&
-    ((data?.conferences?.length ?? 0) > 0 || (data?.playoffs?.length ?? 0) > 0);
-
-  const noData = !isLoading && !isError && !isHockey && (!data?.entries || data.entries.length === 0);
+  const hasEntries = !isLoading && !isError && (data?.entries?.length ?? 0) > 0;
+  const hasMessage = !isLoading && !isError && !hasEntries && data?.message;
+  const noData = !isLoading && !isError && !hasEntries && !hasMessage;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <View style={styles.titleRow}>
           <View>
             <Text style={[styles.title, { color: colors.foreground }]}>Таблицы</Text>
-            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              {data?.season ? `${LEAGUE_NAMES[sport]} · ${data.season}` : LEAGUE_NAMES[sport]}
-            </Text>
+            {data?.season ? (
+              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+                {selectedLeague} · {data.season}
+              </Text>
+            ) : null}
           </View>
           <GearButton />
         </View>
-      </View>
-
-      {/* Sport pills */}
-      <View style={[styles.sportFilter, { borderBottomColor: colors.border }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sportFilterInner}>
-          {SPORTS.map((s) => {
-            const active = sport === s.key;
-            return (
-              <TouchableOpacity
-                key={s.key}
-                onPress={() => setSport(s.key)}
-                style={[
-                  styles.sportPill,
-                  {
-                    backgroundColor: active ? colors.primary : colors.muted,
-                    borderRadius: 20,
-                  },
-                ]}
-              >
-                <Text style={[styles.sportPillText, { color: active ? "#fff" : colors.mutedForeground, fontFamily: active ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
-                  {s.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <LeagueDropdown selected={selectedLeagues} onSelect={setSelectedLeagues} />
       </View>
 
       {isLoading ? (
         <LoadingState count={10} />
       ) : isError ? (
         <ErrorState onRetry={refetch} />
-      ) : isHockey ? (
-        /* ── КХЛ special view ── */
-        <KhlStandingsView
-          conferences={data?.conferences ?? []}
-          playoffs={data?.playoffs ?? []}
-          bottomPadding={bottomPadding}
-        />
-      ) : noData ? (
-        <ScrollView contentContainerStyle={[styles.emptyContainer, { paddingBottom: bottomPadding }]}>
-          <Text style={styles.emptyIcon}>🏆</Text>
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-            {data?.message ? "Плей-офф" : "Данные недоступны"}
-          </Text>
-          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            {data?.message ?? `Турнирная таблица ${LEAGUE_NAMES[sport]} пока не добавлена`}
-          </Text>
-        </ScrollView>
-      ) : (
+      ) : hasEntries ? (
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={{ paddingBottom: bottomPadding }}
@@ -208,7 +135,7 @@ export default function StandingsScreen() {
           refreshControl={
             <RefreshControl
               refreshing={false}
-              onRefresh={() => queryClient.invalidateQueries({ queryKey: ["standings", sport] })}
+              onRefresh={() => queryClient.invalidateQueries({ queryKey: ["standings", selectedLeague] })}
               tintColor={colors.primary}
             />
           }
@@ -220,17 +147,25 @@ export default function StandingsScreen() {
                   <Text style={[styles.leagueLabelText, { color: colors.foreground }]}>{data.league}</Text>
                 </View>
               )}
-              <StandingsTable entries={data?.entries ?? []} sport={sport} colors={colors} />
+              <StandingsTable entries={data?.entries ?? []} colors={colors} />
             </View>
           </ScrollView>
 
           <View style={[styles.legend, { borderTopColor: colors.border }]}>
             <Text style={[styles.legendText, { color: colors.mutedForeground }]}>
-              {sport === "basketball" || sport === "volleyball"
-                ? "И — игры · В — победы · П — поражения · О — очки"
-                : "М — матчи · ЗГ — забито · ПГ — пропущено · РМ — разница · О — очки"}
+              М — матчи · ЗГ — забито · ПГ — пропущено · РМ — разница · О — очки
             </Text>
           </View>
+        </ScrollView>
+      ) : (
+        <ScrollView contentContainerStyle={[styles.emptyContainer, { paddingBottom: bottomPadding }]}>
+          <Text style={styles.emptyIcon}>🏆</Text>
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+            {hasMessage ? "Информация" : "Данные недоступны"}
+          </Text>
+          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+            {data?.message ?? `Турнирная таблица «${selectedLeague}» пока не доступна`}
+          </Text>
         </ScrollView>
       )}
     </View>
@@ -248,6 +183,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 12,
   },
   title: {
     fontSize: 26,
@@ -257,22 +193,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     marginTop: 2,
-  },
-  sportFilter: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 10,
-  },
-  sportFilterInner: {
-    paddingHorizontal: 16,
-    gap: 8,
-    flexDirection: "row",
-  },
-  sportPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  sportPillText: {
-    fontSize: 13,
   },
   scroll: { flex: 1 },
   tableWrapper: {

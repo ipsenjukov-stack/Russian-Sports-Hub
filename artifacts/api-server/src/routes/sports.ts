@@ -351,9 +351,8 @@ async function fetchSstatsFootballEvents(rplBadge: string): Promise<unknown[]> {
   return results.flatMap((r) => r.status === "fulfilled" ? r.value : []);
 }
 
-async function fetchSstatsFootballStandings(): Promise<{ league: string; season: string; entries: unknown[] }> {
-  // CSV endpoint returns standings sorted by team, we sort by points
-  const url = `${SSTATS_BASE}/Games/season-table?${sstatsQs(`league=${SSTATS_RPL_LEAGUE_ID}&year=2025&format=csv`)}`;
+async function fetchSstatsLeagueStandings(leagueId: number, leagueName: string): Promise<{ league: string; season: string; entries: unknown[] }> {
+  const url = `${SSTATS_BASE}/Games/season-table?${sstatsQs(`league=${leagueId}&year=2025&format=csv`)}`;
   const r = await fetch(url, { headers: { "User-Agent": SSTATS_UA, "Accept": "text/csv" } });
   if (!r.ok) throw new Error(`sstats standings error ${r.status}`);
   const csv = await r.text();
@@ -407,7 +406,11 @@ async function fetchSstatsFootballStandings(): Promise<{ league: string; season:
     return { rank: i + 1, ...clean };
   });
 
-  return { league: "Российская Премьер-лига", season: "2025-2026", entries };
+  return { league: leagueName, season: "2025-2026", entries };
+}
+
+async function fetchSstatsFootballStandings(): Promise<{ league: string; season: string; entries: unknown[] }> {
+  return fetchSstatsLeagueStandings(SSTATS_RPL_LEAGUE_ID, "Российская Премьер-лига");
 }
 
 // ── Sofascore КХЛ helpers ─────────────────────────────────────────────────────
@@ -1632,9 +1635,28 @@ type StandingEntry = {
   form?: string; description?: string;
 };
 
+// Leagues with no table (cups / playoff stages)
+const NO_STANDINGS_LEAGUES = new Set(["Кубок России", "Суперкубок России", "Вторая Лига А. Плей-офф"]);
+
 router.get("/sports/standings", async (req, res) => {
-  const { sport = "football" } = req.query as { sport?: string };
+  const { sport = "football", league } = req.query as { sport?: string; league?: string };
   try {
+    // ── League-specific standings (football only) ──────────────────────────
+    if (league) {
+      if (NO_STANDINGS_LEAGUES.has(league)) {
+        return res.json({ league, season: null, entries: [], message: "Турнирная таблица недоступна для этой лиги" });
+      }
+      const cfg = (RUSSIAN_FOOTBALL_LEAGUES as ReadonlyArray<{ id: number; name: string }>).find((l) => l.name === league);
+      if (!cfg) {
+        return res.json({ league, season: null, entries: [], message: "Лига не найдена" });
+      }
+      const result = await fetchSstatsLeagueStandings(cfg.id, league);
+      if (result.entries.length === 0) {
+        return res.json({ league, season: null, entries: [], message: "Данные таблицы пока недоступны" });
+      }
+      return res.json(result);
+    }
+
     if (sport === "football") {
       // Primary: sstats.net; fallback: ESPN
       try {
