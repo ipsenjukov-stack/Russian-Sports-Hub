@@ -12,6 +12,7 @@ import { useFavorites } from "@/context/FavoritesContext";
 import { Match, SportType } from "@/types/sports";
 import { splitTeamName, abbreviateLongName } from "@/utils/teamUtils";
 import { MatchEvents } from "@/components/MatchEvents";
+import { LigaPariLogo } from "@/components/LigaPariLogo";
 
 const SPORT_COLORS: Record<SportType, string> = {
   football: "#2ECC71",
@@ -54,8 +55,12 @@ function TeamLogo({ uri, name, size = 32 }: { uri?: string; name: string; size?:
   );
 }
 
-function LeagueLogo({ uri, size = 28 }: { uri?: string; size?: number }) {
+function LeagueLogo({ uri, leagueName, size = 28 }: { uri?: string; leagueName?: string; size?: number }) {
   const [error, setError] = React.useState(false);
+
+  if (leagueName === "Лига PARI") {
+    return <LigaPariLogo size={size} />;
+  }
 
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
@@ -129,7 +134,7 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.leagueRow}>
-            <LeagueLogo uri={match.leagueLogo} />
+            <LeagueLogo uri={match.leagueLogo} leagueName={match.league} />
             <Text style={[styles.league, { color: colors.mutedForeground }]} numberOfLines={1}>
               {match.league}
             </Text>

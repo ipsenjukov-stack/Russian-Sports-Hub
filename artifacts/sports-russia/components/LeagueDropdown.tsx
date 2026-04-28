@@ -11,6 +11,7 @@ import {
   Pressable,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { LigaPariLogo } from "@/components/LigaPariLogo";
 
 const CDN = "https://media.api-sports.io/football/leagues";
 
@@ -22,7 +23,7 @@ export interface League {
 
 export const FOOTBALL_LEAGUES: League[] = [
   { key: "Российская Премьер-лига",            label: "Российская Премьер-лига",      logo: `${CDN}/235.png` },
-  { key: "Лига PARI",                           label: "Лига PARI",                    logo: require("../assets/images/liga-pari.png") as number },
+  { key: "Лига PARI",                           label: "Лига PARI",                    logo: 0 },
   { key: "ФНЛ-2. Группа 1",                   label: "ФНЛ-2. Группа 1",             logo: `${CDN}/651.png` },
   { key: "ФНЛ-2. Группа 2",                   label: "ФНЛ-2. Группа 2",             logo: `${CDN}/652.png` },
   { key: "ФНЛ-2. Группа 3",                   label: "ФНЛ-2. Группа 3",             logo: `${CDN}/650.png` },
@@ -75,15 +76,17 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
         activeOpacity={0.7}
         style={[styles.trigger, { backgroundColor: colors.muted, borderColor: colors.border }]}
       >
-        {logo !== null ? (
-          <Image source={typeof logo === "number" ? logo : { uri: logo }} style={styles.triggerLogo} resizeMode="contain" />
+        {selected.length === 1 && selected[0] === "Лига PARI" ? (
+          <LigaPariLogo size={20} />
+        ) : logo !== null ? (
+          <Image source={typeof logo === "number" ? logo : { uri: logo as string }} style={styles.triggerLogo} resizeMode="contain" />
         ) : (
           <Text style={[styles.triggerBall, { color: colors.mutedForeground }]}>⚽</Text>
         )}
         <Text style={[styles.triggerText, { color: colors.foreground }]} numberOfLines={1}>
           {triggerLabel(selected)}
         </Text>
-        {selected.length > 0 && (
+        {selected.length > 1 && (
           <View style={[styles.badge, { backgroundColor: colors.primary }]}>
             <Text style={styles.badgeText}>{selected.length}</Text>
           </View>
@@ -126,11 +129,15 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
                     ]}
                   >
                     <View style={styles.logoWrap}>
-                      <Image
-                        source={typeof item.logo === "number" ? item.logo : { uri: item.logo }}
-                        style={styles.leagueLogo}
-                        resizeMode="contain"
-                      />
+                      {item.key === "Лига PARI" ? (
+                        <LigaPariLogo size={36} />
+                      ) : (
+                        <Image
+                          source={typeof item.logo === "number" ? item.logo : { uri: item.logo as string }}
+                          style={styles.leagueLogo}
+                          resizeMode="contain"
+                        />
+                      )}
                     </View>
                     <Text style={[
                       styles.leagueLabel,
