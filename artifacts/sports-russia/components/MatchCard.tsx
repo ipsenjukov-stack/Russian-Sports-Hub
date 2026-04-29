@@ -173,7 +173,7 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.leagueRow}>
-            <LeagueLogo uri={match.leagueLogo} leagueName={match.league} />
+            <LeagueLogo uri={match.leagueLogo} leagueName={match.league} size={match.league === "Лига PARI" ? 34 : 28} />
             <Text style={[styles.league, { color: colors.mutedForeground }]} numberOfLines={1}>
               {match.league}
             </Text>

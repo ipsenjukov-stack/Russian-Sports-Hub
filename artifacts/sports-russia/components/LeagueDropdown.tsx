@@ -89,7 +89,7 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
         style={[styles.trigger, { backgroundColor: colors.muted, borderColor: colors.border }]}
       >
         {selected.length === 1 && selected[0] === "Лига PARI" ? (
-          <LigaPariLogo size={20} />
+          <LigaPariLogo size={26} />
         ) : selected.length === 1 && selected[0].startsWith("Вторая Лига А") ? (
           <VtorayaLigaALogo size={20} />
         ) : selected.length === 1 && selected[0].startsWith("Вторая Лига Б") ? (
@@ -136,7 +136,7 @@ export function LeagueDropdown({ selected, onSelect }: LeagueDropdownProps) {
                   >
                     <View style={styles.logoWrap}>
                       {item.key === "Лига PARI" ? (
-                        <LigaPariLogo size={36} />
+                        <LigaPariLogo size={44} />
                       ) : item.key.startsWith("Вторая Лига А") ? (
                         <VtorayaLigaALogo size={36} />
                       ) : item.key.startsWith("Вторая Лига Б") ? (
@@ -240,8 +240,8 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   logoWrap: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
