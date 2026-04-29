@@ -261,6 +261,52 @@ function translateSstatsTeam(team: SstatsTeam): string {
   return SSTATS_RPL_TEAM_NAMES[team.id] ?? translateTeam(team.name);
 }
 
+function translateRoundName(round: string | null | undefined): string | null {
+  if (!round) return null;
+  // Already translated / Russian — return as-is
+  if (/[а-яёА-ЯЁ]/.test(round)) return round;
+  // Cup stage names
+  if (/^final$/i.test(round)) return "Финал";
+  if (/^semi.?finals?$/i.test(round)) return "Полуфиналы";
+  if (/^quarter.?finals?$/i.test(round)) return "Четвертьфиналы";
+  if (/^round of 16$/i.test(round)) return "1/8 финала";
+  if (/^round of 32$/i.test(round)) return "1/16 финала";
+  if (/^3rd place/i.test(round)) return "Матч за 3-е место";
+  // "Regions Path - Nth Round" / "Regions Path - Semi-finals"
+  const regionsMatch = round.match(/^Regions Path\s*-\s*(.+)$/i);
+  if (regionsMatch) {
+    const stage = regionsMatch[1].trim();
+    if (/semi.?finals?/i.test(stage)) return "Региональный этап — Полуфиналы";
+    if (/(\d+)(?:st|nd|rd|th) round/i.test(stage)) {
+      const n = stage.match(/(\d+)/);
+      return `Региональный этап — ${n?.[1]}-й тур`;
+    }
+    return `Региональный этап — ${stage}`;
+  }
+  // "Promotion Round - Group N - M" → "Стыковые матчи — Тур M"
+  const promoMatch = round.match(/^Promotion Round\s*-\s*.+\s*-\s*(\d+)$/i);
+  if (promoMatch) return `Стыковые матчи — Тур ${promoMatch[1]}`;
+  // "Relegation Round - Group N - M" → "Переходные матчи — Тур M"
+  const relegMatch = round.match(/^Relegation Round\s*-\s*.+\s*-\s*(\d+)$/i);
+  if (relegMatch) return `Переходные матчи — Тур ${relegMatch[1]}`;
+  // "Group N - M" / "Division B - Group N - M" → "Тур M"
+  const groupMatch = round.match(/Group\s+\d+\s*-\s*(\d+)$/i);
+  if (groupMatch) return `Тур ${groupMatch[1]}`;
+  // "Spring Season Gold - N" / "Spring Season Silver - N" → "Тур N"
+  const springMatch = round.match(/^Spring Season\s+\w+\s*-\s*(\d+)$/i);
+  if (springMatch) return `Тур ${springMatch[1]}`;
+  // "Fall Season Silver - N" / "Fall Season Gold - N" → "Тур N"
+  const fallMatch = round.match(/^Fall Season\s+\w+\s*-\s*(\d+)$/i);
+  if (fallMatch) return `Тур ${fallMatch[1]}`;
+  // "Regular Season - N" → "Тур N"
+  const regularMatch = round.match(/^Regular Season\s*-\s*(\d+)$/i);
+  if (regularMatch) return `Тур ${regularMatch[1]}`;
+  // Generic "* - N" fallback → "Тур N"
+  const genericMatch = round.match(/\s*-\s*(\d+)$/);
+  if (genericMatch) return `Тур ${genericMatch[1]}`;
+  return round;
+}
+
 function mapSstatsMatch(m: SstatsMatch, leagueName: string, leagueBadge: string): Record<string, unknown> {
   const homeName = translateSstatsTeam(m.homeTeam);
   const awayName = translateSstatsTeam(m.awayTeam);
@@ -302,7 +348,7 @@ function mapSstatsMatch(m: SstatsMatch, leagueName: string, leagueBadge: string)
     _espnState: strStatus === "live" ? "in" : strStatus === "finished" ? "post" : "pre",
     _periodLabel: periodLabel,
     _source: "sstats",
-    _roundName: m.roundName ?? null,
+    _roundName: translateRoundName(m.roundName),
     _flashId: m.flashId ?? null,
     _homeTeamId: m.homeTeam.id,
     _awayTeamId: m.awayTeam.id,

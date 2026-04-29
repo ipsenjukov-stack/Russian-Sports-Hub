@@ -21,8 +21,13 @@ import { useLeague } from "@/context/LeagueContext";
 import { Match } from "@/types/sports";
 
 function roundSortKey(name: string): number {
-  const m = name.match(/(\d+)\s*тур/);
-  return m ? parseInt(m[1], 10) : 0;
+  // "Тур N" (translated from "Group X - N")
+  const turMatch = name.match(/^(?:.*—\s*)?Тур\s+(\d+)/i);
+  if (turMatch) return parseInt(turMatch[1], 10);
+  // "N тур" (RPL/Лига PARI style)
+  const nTurMatch = name.match(/(\d+)\s*тур/i);
+  if (nTurMatch) return parseInt(nTurMatch[1], 10);
+  return 0;
 }
 
 function groupByRound(matches: Match[]): { round: string; matches: Match[] }[] {
