@@ -113,7 +113,7 @@ export const TEAM_TRANSLATIONS: Record<string, string> = {
   "Kyzyltash": "Кызылташ",
   "Legion Dynamo": "Легион-Динамо",
   "Nart Cherkessk": "Нарт Черкесск",
-  "PSK Dinskaya": "ПСК Динская",
+  "PSK Dinskaya": "ПСК",
   "Pobeda": "Победа",
   "Rostov II": "Ростов-2",
   "Rubin Yalta": "Рубин Ялта",
