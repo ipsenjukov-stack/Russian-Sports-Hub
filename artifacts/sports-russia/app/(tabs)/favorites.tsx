@@ -41,10 +41,12 @@ export default function FavoritesScreen() {
   });
 
   const liveMatches = favoriteMatches.filter((m) => m.status === "live");
+  const upcomingMatches = favoriteMatches
+    .filter((m) => m.status === "upcoming")
+    .sort((a, b) => a.startTimestamp - b.startTimestamp);
   const finishedMatches = favoriteMatches
     .filter((m) => m.status === "finished")
-    .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
-  const upcomingMatches = favoriteMatches.filter((m) => m.status === "upcoming");
+    .sort((a, b) => b.startTimestamp - a.startTimestamp);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
