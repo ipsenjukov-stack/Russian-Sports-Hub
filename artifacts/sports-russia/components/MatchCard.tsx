@@ -32,6 +32,15 @@ interface MatchCardProps {
 const LOCAL_TEAM_LOGOS: Record<string, ReturnType<typeof require>> = {
   "ФК Сочи":          require("@/assets/images/team-sochi-nobg.png"),
   "Спартак Кострома": require("@/assets/images/team-spartak-kostroma.png"),
+  "Текстильщик":      require("@/assets/images/team-tekstilshchik-nobg.png"),
+  "Севастополь":      require("@/assets/images/team-sevastopol-nobg.png"),
+  "Дружба":           require("@/assets/images/team-druzhba-nobg.png"),
+  "Луки-Энергия":     require("@/assets/images/team-luki-energiya-nobg.png"),
+  "Коломна":          require("@/assets/images/team-kolomna-nobg.png"),
+  "Знамя Труда":      require("@/assets/images/team-znamya-truda-nobg.png"),
+  "Рязань":           require("@/assets/images/team-ryazan-nobg.png"),
+  "Металлург Липецк": require("@/assets/images/team-metallurg-lipetsk-nobg.png"),
+  "Строгино Москва":  require("@/assets/images/team-strogino-nobg.png"),
 };
 
 // Local league logo overrides
