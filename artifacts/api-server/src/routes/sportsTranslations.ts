@@ -122,6 +122,7 @@ export const TEAM_TRANSLATIONS: Record<string, string> = {
   "Sochi II": "Сочи-2",
   "Spartak Nalchik": "Спартак Нальчик",
   "Lugansk": "Луганск",
+  "Pervorechenskij": "Первореченский",
 
   // === ФНЛ-2. Группа 2 ===
   "Baltika II": "Балтика-2 Калининград",

@@ -19,10 +19,10 @@ const SSTATS_RPL_LS_ID    = "YacqHHdS"; // Flashscore string league ID
 const RUSSIAN_FOOTBALL_LEAGUES = [
   { id: 235, name: "Российская Премьер-лига",       year: 2025 },
   { id: 236, name: "Лига PARI",                      year: 2025 },
-  { id: 651, name: "Вторая Лига Б. Группа 1",        year: 2025 },
-  { id: 652, name: "Вторая Лига Б. Группа 2",        year: 2025 },
-  { id: 650, name: "Вторая Лига Б. Группа 3",        year: 2025 },
-  { id: 653, name: "Вторая Лига Б. Группа 4",        year: 2025 },
+  { id: 651, name: "Вторая Лига Б. Группа 1",        year: 2026 },
+  { id: 652, name: "Вторая Лига Б. Группа 2",        year: 2026 },
+  { id: 650, name: "Вторая Лига Б. Группа 3",        year: 2026 },
+  { id: 653, name: "Вторая Лига Б. Группа 4",        year: 2026 },
   { id: 1025, name: "Вторая Лига А. Группа Золото",  year: 2025 },
   { id: 1026, name: "Вторая Лига А. Группа Серебро", year: 2025 },
   { id: 1121, name: "Вторая Лига А. Плей-офф",           year: 2025 },
@@ -229,6 +229,7 @@ const SSTATS_RPL_TEAM_NAMES: Record<number, string> = {
   2012: "Сочи",
   6786: "Акрон",
   6813: "Динамо Махачкала",
+  27649: "Первореченский",
 };
 
 interface SstatsTeam {
@@ -410,15 +411,25 @@ async function fetchSstatsLeagueSeasonEvents(
     fetch(qs("Live=true"),                                   { headers: SSTATS_HEADERS }),
   ]);
 
-  const parse = async (r: Response) => {
+  const parse = async (r: Response, critical = false) => {
     try {
-      if (!r.ok) return [];
+      if (!r.ok) {
+        if (critical && r.status === 429) throw new Error(`rate_limited_${leagueId}`);
+        return [];
+      }
       const j = await r.json() as { data?: SstatsMatch[] };
       return j.data ?? [];
-    } catch { return []; }
+    } catch (e) {
+      if (critical && (e as Error).message.startsWith("rate_limited")) throw e;
+      return [];
+    }
   };
 
-  const [ended, upcoming, live] = await Promise.all([parse(endedRes), parse(upcomingRes), parse(liveRes)]);
+  const [ended, upcoming, live] = await Promise.all([
+    parse(endedRes, true),  // throw on 429 so caller knows data is incomplete
+    parse(upcomingRes),
+    parse(liveRes),
+  ]);
   const seen = new Set<number>();
   const all: SstatsMatch[] = [];
   for (const m of [...live, ...upcoming, ...ended]) {
@@ -428,7 +439,8 @@ async function fetchSstatsLeagueSeasonEvents(
 }
 
 let footballSeasonCache: { data: unknown[]; fetchedAt: number } | null = null;
-const FOOTBALL_SEASON_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const FOOTBALL_SEASON_CACHE_TTL_MS = 30 * 60 * 1000;   // 30 minutes (full data)
+const FOOTBALL_SEASON_CACHE_SHORT_MS = 2 * 60 * 1000;  // 2 minutes (incomplete data)
 
 async function fetchSstatsFootballSeasonEvents(rplBadge: string): Promise<unknown[]> {
   const now = Date.now();
@@ -440,13 +452,24 @@ async function fetchSstatsFootballSeasonEvents(rplBadge: string): Promise<unknow
       fetchSstatsLeagueSeasonEvents(lg.id, lg.name, lg.id === 235 ? rplBadge : "", lg.year)
     )
   );
+  const hasRateLimitErrors = results.some((r) => r.status === "rejected");
   const data = results.flatMap((r) => r.status === "fulfilled" ? r.value : []);
-  footballSeasonCache = { data, fetchedAt: now };
+  const ttl = hasRateLimitErrors ? FOOTBALL_SEASON_CACHE_SHORT_MS : FOOTBALL_SEASON_CACHE_TTL_MS;
+  footballSeasonCache = { data, fetchedAt: now - (FOOTBALL_SEASON_CACHE_TTL_MS - ttl) };
   return data;
 }
 
-async function fetchSstatsLeagueStandings(leagueId: number, leagueName: string): Promise<{ league: string; season: string; entries: unknown[] }> {
-  const url = `${SSTATS_BASE}/Games/season-table?${sstatsQs(`league=${leagueId}&year=2025&format=csv`)}`;
+const standingsCache = new Map<string, { data: { league: string; season: string; entries: unknown[] }; fetchedAt: number }>();
+const STANDINGS_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+async function fetchSstatsLeagueStandings(leagueId: number, leagueName: string, year = 2025): Promise<{ league: string; season: string; entries: unknown[] }> {
+  const cacheKey = `${leagueId}_${year}`;
+  const cached = standingsCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < STANDINGS_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  const url = `${SSTATS_BASE}/Games/season-table?${sstatsQs(`league=${leagueId}&year=${year}&format=csv`)}`;
   const r = await fetch(url, { headers: { "User-Agent": SSTATS_UA, "Accept": "text/csv" } });
   if (!r.ok) throw new Error(`sstats standings error ${r.status}`);
   const csv = await r.text();
@@ -500,7 +523,9 @@ async function fetchSstatsLeagueStandings(leagueId: number, leagueName: string):
     return { rank: i + 1, ...clean };
   });
 
-  return { league: leagueName, season: "2025-2026", entries };
+  const result = { league: leagueName, season: "2025-2026", entries };
+  standingsCache.set(cacheKey, { data: result, fetchedAt: Date.now() });
+  return result;
 }
 
 async function fetchSstatsFootballStandings(): Promise<{ league: string; season: string; entries: unknown[] }> {
@@ -1762,11 +1787,11 @@ router.get("/sports/standings", async (req, res) => {
       if (NO_STANDINGS_LEAGUES.has(league)) {
         return res.json({ league, season: null, entries: [], message: "Турнирная таблица недоступна для этой лиги" });
       }
-      const cfg = (RUSSIAN_FOOTBALL_LEAGUES as ReadonlyArray<{ id: number; name: string }>).find((l) => l.name === league);
+      const cfg = (RUSSIAN_FOOTBALL_LEAGUES as ReadonlyArray<{ id: number; name: string; year: number }>).find((l) => l.name === league);
       if (!cfg) {
         return res.json({ league, season: null, entries: [], message: "Лига не найдена" });
       }
-      const result = await fetchSstatsLeagueStandings(cfg.id, league);
+      const result = await fetchSstatsLeagueStandings(cfg.id, league, cfg.year);
       if (result.entries.length === 0) {
         return res.json({ league, season: null, entries: [], message: "Данные таблицы пока недоступны" });
       }
