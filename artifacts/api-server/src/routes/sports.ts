@@ -351,6 +351,54 @@ async function fetchSstatsFootballEvents(rplBadge: string): Promise<unknown[]> {
   return results.flatMap((r) => r.status === "fulfilled" ? r.value : []);
 }
 
+// Full-season variant: higher limits, separate cache
+async function fetchSstatsLeagueSeasonEvents(
+  leagueId: number, leagueName: string, leagueBadge: string, year = 2025,
+): Promise<unknown[]> {
+  const qs = (extra: string) =>
+    `${SSTATS_BASE}/Games/list?${sstatsQs(`LeagueId=${leagueId}&TimeZone=3&${extra}`)}`;
+
+  const [endedRes, upcomingRes, liveRes] = await Promise.all([
+    fetch(qs(`Ended=true&Year=${year}&Limit=1000&Order=-1`), { headers: SSTATS_HEADERS }),
+    fetch(qs("Upcoming=true&Limit=1000"),                    { headers: SSTATS_HEADERS }),
+    fetch(qs("Live=true"),                                   { headers: SSTATS_HEADERS }),
+  ]);
+
+  const parse = async (r: Response) => {
+    try {
+      if (!r.ok) return [];
+      const j = await r.json() as { data?: SstatsMatch[] };
+      return j.data ?? [];
+    } catch { return []; }
+  };
+
+  const [ended, upcoming, live] = await Promise.all([parse(endedRes), parse(upcomingRes), parse(liveRes)]);
+  const seen = new Set<number>();
+  const all: SstatsMatch[] = [];
+  for (const m of [...live, ...upcoming, ...ended]) {
+    if (!seen.has(m.id)) { seen.add(m.id); all.push(m); }
+  }
+  return all.map((m) => mapSstatsMatch(m, leagueName, leagueBadge));
+}
+
+let footballSeasonCache: { data: unknown[]; fetchedAt: number } | null = null;
+const FOOTBALL_SEASON_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+async function fetchSstatsFootballSeasonEvents(rplBadge: string): Promise<unknown[]> {
+  const now = Date.now();
+  if (footballSeasonCache && now - footballSeasonCache.fetchedAt < FOOTBALL_SEASON_CACHE_TTL_MS) {
+    return footballSeasonCache.data;
+  }
+  const results = await Promise.allSettled(
+    RUSSIAN_FOOTBALL_LEAGUES.map((lg) =>
+      fetchSstatsLeagueSeasonEvents(lg.id, lg.name, lg.id === 235 ? rplBadge : "", lg.year)
+    )
+  );
+  const data = results.flatMap((r) => r.status === "fulfilled" ? r.value : []);
+  footballSeasonCache = { data, fetchedAt: now };
+  return data;
+}
+
 async function fetchSstatsLeagueStandings(leagueId: number, leagueName: string): Promise<{ league: string; season: string; entries: unknown[] }> {
   const url = `${SSTATS_BASE}/Games/season-table?${sstatsQs(`league=${leagueId}&year=2025&format=csv`)}`;
   const r = await fetch(url, { headers: { "User-Agent": SSTATS_UA, "Accept": "text/csv" } });
@@ -1545,6 +1593,28 @@ router.get("/sports/all-matches", async (req, res) => {
     res.json({ events: unique });
   } catch (err) {
     req.log.error({ err }, "Failed to fetch all matches");
+    res.status(502).json({ error: "Failed to fetch data" });
+  }
+});
+
+// GET /api/sports/football-season — all football matches for the full season (high limits, 30-min cache)
+router.get("/sports/football-season", async (req, res) => {
+  try {
+    const rplBadge = await fetchLeagueBadge(RPL_SPORTSDB_ID);
+    const events = await fetchSstatsFootballSeasonEvents(rplBadge);
+
+    // Deduplicate by idEvent
+    const seen = new Set<string>();
+    const unique = events.filter((e) => {
+      const id = (e as { idEvent: string }).idEvent;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+
+    res.json({ events: unique });
+  } catch (err) {
+    req.log.error({ err }, "Failed to fetch football season");
     res.status(502).json({ error: "Failed to fetch data" });
   }
 });

@@ -10,7 +10,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
-import { useAllMatches } from "@/hooks/useSportsData";
+import { useSeasonMatches } from "@/hooks/useSportsData";
 import { LeagueDropdown } from "@/components/LeagueDropdown";
 import { MatchCard } from "@/components/MatchCard";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -25,7 +25,7 @@ export default function ScheduleScreen() {
   const insets = useSafeAreaInsets();
   const { selectedLeagues, setSelectedLeagues } = useLeague();
   const queryClient = useQueryClient();
-  const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
+  const { data: allMatches, isLoading, isError, refetch } = useSeasonMatches();
 
   const footballMatches = (allMatches || []).filter(
     (m) => m.status === "upcoming" && m.sport === "football"
@@ -60,7 +60,7 @@ export default function ScheduleScreen() {
           refreshControl={
             <RefreshControl
               refreshing={false}
-              onRefresh={() => queryClient.invalidateQueries({ queryKey: ["allMatches"] })}
+              onRefresh={() => queryClient.invalidateQueries({ queryKey: ["seasonMatches"] })}
               tintColor={colors.primary}
             />
           }

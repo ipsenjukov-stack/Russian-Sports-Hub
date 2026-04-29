@@ -10,11 +10,14 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
-import { useAllMatches } from "@/hooks/useSportsData";
+import { useSeasonMatches } from "@/hooks/useSportsData";
 import { MatchCard } from "@/components/MatchCard";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
+import { LeagueDropdown } from "@/components/LeagueDropdown";
+import { GearButton } from "@/components/GearButton";
+import { useLeague } from "@/context/LeagueContext";
 import { Match } from "@/types/sports";
 
 function roundSortKey(name: string): number {
@@ -50,10 +53,12 @@ export default function ResultsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
+  const { selectedLeagues, setSelectedLeagues } = useLeague();
+  const { data: allMatches, isLoading, isError, refetch } = useSeasonMatches();
 
   const finished = (allMatches || [])
     .filter((m) => m.status === "finished" && m.sport === "football")
+    .filter((m) => selectedLeagues.length === 0 || selectedLeagues.includes(m.league ?? ""))
     .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
 
   const groups = groupByRound(finished);
@@ -64,10 +69,11 @@ export default function ResultsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 12, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>Результаты</Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {finished.length > 0 ? `${finished.length} матчей за сезон` : "Завершённые матчи"}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: colors.foreground }]}>Результаты</Text>
+          <GearButton />
+        </View>
+        <LeagueDropdown selected={selectedLeagues} onSelect={setSelectedLeagues} />
       </View>
 
       {isLoading ? (
@@ -82,7 +88,7 @@ export default function ResultsScreen() {
           refreshControl={
             <RefreshControl
               refreshing={false}
-              onRefresh={() => queryClient.invalidateQueries({ queryKey: ["allMatches"] })}
+              onRefresh={() => queryClient.invalidateQueries({ queryKey: ["seasonMatches"] })}
               tintColor={colors.primary}
             />
           }
@@ -116,14 +122,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
   title: {
     fontSize: 26,
     fontFamily: "Inter_700Bold",
-  },
-  subtitle: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    marginTop: 2,
   },
   scroll: { flex: 1 },
   roundHeader: {

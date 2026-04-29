@@ -211,3 +211,15 @@ export async function fetchAllMatches(): Promise<Match[]> {
   const events = data.events ?? [];
   return events.map(mapEventToMatch);
 }
+
+export async function fetchSeasonMatches(): Promise<Match[]> {
+  const base = getApiBase();
+  const url = `${base}/api/sports/football-season`;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  const data: { events: SportsDBEvent[] } = await res.json();
+
+  const events = data.events ?? [];
+  return events.map(mapEventToMatch);
+}

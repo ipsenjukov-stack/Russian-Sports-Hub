@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchAllMatches } from "@/services/sportsdb";
+import { fetchAllMatches, fetchSeasonMatches } from "@/services/sportsdb";
 import { Match, SportType } from "@/types/sports";
 import { Platform } from "react-native";
 
@@ -95,6 +95,15 @@ export function useAllMatches() {
     queryKey: ["allMatches"],
     queryFn: fetchAllMatches,
     staleTime: 5 * 60 * 1000,
+    retry: 2,
+  });
+}
+
+export function useSeasonMatches() {
+  return useQuery<Match[]>({
+    queryKey: ["seasonMatches"],
+    queryFn: fetchSeasonMatches,
+    staleTime: 30 * 60 * 1000,
     retry: 2,
   });
 }
