@@ -18,9 +18,27 @@ import { GearButton } from "@/components/GearButton";
 import { LeagueDropdown } from "@/components/LeagueDropdown";
 import { useLeague } from "@/context/LeagueContext";
 
+const LOCAL_TEAM_LOGOS: Record<string, ReturnType<typeof require>> = {
+  "ФК Сочи":          require("@/assets/images/team-sochi-nobg.png"),
+  "Сочи":             require("@/assets/images/team-sochi-nobg.png"),
+  "Спартак Кострома": require("@/assets/images/team-spartak-kostroma.png"),
+};
+
 function TeamBadge({ uri, teamName, size = 28 }: { uri: string; teamName: string; size?: number }) {
   const colors = useColors();
   const [err, setErr] = useState(false);
+
+  const localLogo = LOCAL_TEAM_LOGOS[teamName];
+  if (localLogo) {
+    return (
+      <Image
+        source={localLogo}
+        style={{ width: size, height: size }}
+        resizeMode="contain"
+      />
+    );
+  }
+
   if (!uri || err) {
     const initials = teamName
       .split(" ")
