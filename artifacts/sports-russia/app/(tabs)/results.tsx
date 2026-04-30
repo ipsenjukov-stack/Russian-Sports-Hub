@@ -19,7 +19,7 @@ import { LeagueDropdown } from "@/components/LeagueDropdown";
 import { GearButton } from "@/components/GearButton";
 import { useLeague } from "@/context/LeagueContext";
 import { Match } from "@/types/sports";
-import { matchesLeagueFilter } from "@/utils/leagueUtils";
+import { matchesLeagueFilter, LIGA_A_KEY } from "@/utils/leagueUtils";
 
 function roundSortKey(name: string): number {
   // "Тур N" (translated from "Group X - N")
@@ -62,12 +62,16 @@ export default function ResultsScreen() {
   const { selectedLeagues, setSelectedLeagues } = useLeague();
   const { data: allMatches, isLoading, isError, refetch } = useSeasonMatches();
 
+  const isLigaA = selectedLeagues[0] === LIGA_A_KEY;
+
   const finished = (allMatches || [])
     .filter((m) => m.status === "finished" && m.sport === "football")
     .filter((m) => matchesLeagueFilter(m.league, selectedLeagues))
-    .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
+    .sort((a, b) => isLigaA
+      ? b.startTimestamp - a.startTimestamp
+      : b.sortKey.localeCompare(a.sortKey));
 
-  const groups = groupByRound(finished);
+  const groups = isLigaA ? [] : groupByRound(finished);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
@@ -101,6 +105,10 @@ export default function ResultsScreen() {
         >
           {finished.length === 0 ? (
             <EmptyState message="Результатов не найдено" />
+          ) : isLigaA ? (
+            finished.map((match) => (
+              <MatchCard key={match.id} match={match} />
+            ))
           ) : groups.length > 0 ? (
             groups.map(({ round, matches: roundMatches }) => (
               <View key={round}>

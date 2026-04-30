@@ -12,13 +12,19 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
-import { useStandings, useLigaAStandings, StandingEntry } from "@/hooks/useSportsData";
+import { useStandings, StandingEntry } from "@/hooks/useSportsData";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
 import { LeagueDropdown } from "@/components/LeagueDropdown";
 import { useLeague } from "@/context/LeagueContext";
-import { LIGA_A_KEY, LIGA_A_PHASE1, LIGA_A_PHASE2 } from "@/utils/leagueUtils";
+import { LIGA_A_KEY } from "@/utils/leagueUtils";
+import {
+  LIGA_A_PHASE1_GOLD,
+  LIGA_A_PHASE1_SILVER,
+  LIGA_A_PHASE2_GOLD,
+  LIGA_A_PHASE2_SILVER,
+} from "@/data/ligaAStandings";
 
 const LOCAL_TEAM_LOGOS: Record<string, ReturnType<typeof require>> = {
   "ФК Сочи":          require("@/assets/images/team-sochi-nobg.png"),
@@ -73,8 +79,12 @@ function TeamBadge({ uri, teamName, size = 28 }: { uri: string; teamName: string
   );
 }
 
-function StandingsTable({ entries, colors }: { entries: StandingEntry[]; colors: ReturnType<typeof useColors> }) {
-  const cols = ["М", "ЗГ", "ПГ", "РМ", "О"];
+function StandingsTable({ entries, colors, showWDL = false }: {
+  entries: StandingEntry[];
+  colors: ReturnType<typeof useColors>;
+  showWDL?: boolean;
+}) {
+  const cols = showWDL ? ["И", "В", "Н", "П", "О"] : ["М", "ЗГ", "ПГ", "РМ", "О"];
   return (
     <View style={styles.table}>
       <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
@@ -106,13 +116,25 @@ function StandingsTable({ entries, colors }: { entries: StandingEntry[]; colors:
                 {e.team}
               </Text>
             </View>
-            <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gp}</Text>
-            <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gf}</Text>
-            <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.ga}</Text>
-            <Text style={[styles.statCell, { color: e.gd > 0 ? colors.live : e.gd < 0 ? "#e53e3e" : colors.mutedForeground }]}>
-              {e.gd > 0 ? `+${e.gd}` : e.gd}
-            </Text>
-            <Text style={[styles.statCell, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>{e.pts}</Text>
+            {showWDL ? (
+              <>
+                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gp}</Text>
+                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.w}</Text>
+                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.d}</Text>
+                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.l}</Text>
+                <Text style={[styles.statCell, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>{e.pts}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gp}</Text>
+                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gf}</Text>
+                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.ga}</Text>
+                <Text style={[styles.statCell, { color: e.gd > 0 ? colors.live : e.gd < 0 ? "#e53e3e" : colors.mutedForeground }]}>
+                  {e.gd > 0 ? `+${e.gd}` : e.gd}
+                </Text>
+                <Text style={[styles.statCell, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>{e.pts}</Text>
+              </>
+            )}
           </View>
         );
       })}
@@ -124,14 +146,11 @@ function LigaAStandingsView({ colors, bottomPadding }: {
   colors: ReturnType<typeof useColors>;
   bottomPadding: number;
 }) {
-  const [phase, setPhase] = useState<1 | 2>(1);
-  const queryClient = useQueryClient();
-  const leagues = phase === 1 ? LIGA_A_PHASE1 : LIGA_A_PHASE2;
-  const { data, isLoading, isError, refetch } = useLigaAStandings(leagues);
+  const [phase, setPhase] = useState<1 | 2>(2);
 
-  const [goldData, silverData] = data;
-  const goldLabel  = phase === 1 ? "Группа Золото" : "Весна Золото";
-  const silverLabel = phase === 1 ? "Группа Серебро" : "Весна Серебро";
+  const goldEntries   = phase === 1 ? LIGA_A_PHASE1_GOLD   : LIGA_A_PHASE2_GOLD;
+  const silverEntries = phase === 1 ? LIGA_A_PHASE1_SILVER : LIGA_A_PHASE2_SILVER;
+  const seasonLabel   = phase === 1 ? "Осень 2024" : "Весна 2026";
 
   return (
     <>
@@ -152,55 +171,32 @@ function LigaAStandingsView({ colors, bottomPadding }: {
         </TouchableOpacity>
       </View>
 
-      {isLoading ? (
-        <LoadingState count={10} />
-      ) : isError ? (
-        <ErrorState onRetry={refetch} />
-      ) : (
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={{ paddingBottom: bottomPadding }}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={false}
-              onRefresh={() => {
-                queryClient.invalidateQueries({ queryKey: ["standings", leagues[0]] });
-                queryClient.invalidateQueries({ queryKey: ["standings", leagues[1]] });
-              }}
-              tintColor={colors.primary}
-            />
-          }
-        >
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.tableWrapper}>
-              {(goldData?.entries?.length ?? 0) > 0 && (
-                <>
-                  <View style={[styles.groupLabel, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.groupLabelText, { color: colors.foreground }]}>🥇 {goldLabel}</Text>
-                    {goldData?.season ? <Text style={[styles.groupSeason, { color: colors.mutedForeground }]}>{goldData.season}</Text> : null}
-                  </View>
-                  <StandingsTable entries={goldData!.entries} colors={colors} />
-                </>
-              )}
-              {(silverData?.entries?.length ?? 0) > 0 && (
-                <>
-                  <View style={[styles.groupLabel, { borderBottomColor: colors.border, marginTop: 16 }]}>
-                    <Text style={[styles.groupLabelText, { color: colors.foreground }]}>🥈 {silverLabel}</Text>
-                    {silverData?.season ? <Text style={[styles.groupSeason, { color: colors.mutedForeground }]}>{silverData.season}</Text> : null}
-                  </View>
-                  <StandingsTable entries={silverData!.entries} colors={colors} />
-                </>
-              )}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={{ paddingBottom: bottomPadding }}
+        showsVerticalScrollIndicator={false}
+      >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.tableWrapper}>
+            <View style={[styles.groupLabel, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.groupLabelText, { color: colors.foreground }]}>🥇 Группа Золото</Text>
+              <Text style={[styles.groupSeason, { color: colors.mutedForeground }]}>{seasonLabel}</Text>
             </View>
-          </ScrollView>
-          <View style={[styles.legend, { borderTopColor: colors.border }]}>
-            <Text style={[styles.legendText, { color: colors.mutedForeground }]}>
-              М — матчи · ЗГ — забито · ПГ — пропущено · РМ — разница · О — очки
-            </Text>
+            <StandingsTable entries={goldEntries} colors={colors} showWDL />
+
+            <View style={[styles.groupLabel, { borderBottomColor: colors.border, marginTop: 16 }]}>
+              <Text style={[styles.groupLabelText, { color: colors.foreground }]}>🥈 Группа Серебро</Text>
+              <Text style={[styles.groupSeason, { color: colors.mutedForeground }]}>{seasonLabel}</Text>
+            </View>
+            <StandingsTable entries={silverEntries} colors={colors} showWDL />
           </View>
         </ScrollView>
-      )}
+        <View style={[styles.legend, { borderTopColor: colors.border }]}>
+          <Text style={[styles.legendText, { color: colors.mutedForeground }]}>
+            И — матчи · В — победы · Н — ничьи · П — поражения · О — очки
+          </Text>
+        </View>
+      </ScrollView>
     </>
   );
 }

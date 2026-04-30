@@ -19,7 +19,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
 import { useLeague } from "@/context/LeagueContext";
-import { matchesLeagueFilter } from "@/utils/leagueUtils";
+import { matchesLeagueFilter, LIGA_A_KEY } from "@/utils/leagueUtils";
 
 export default function ScheduleScreen() {
   const colors = useColors();
@@ -28,11 +28,15 @@ export default function ScheduleScreen() {
   const queryClient = useQueryClient();
   const { data: allMatches, isLoading, isError, refetch } = useSeasonMatches();
 
+  const isLigaA = selectedLeagues[0] === LIGA_A_KEY;
+
   const footballMatches = (allMatches || []).filter(
     (m) => m.status === "upcoming" && m.sport === "football"
   );
 
-  const upcoming = footballMatches.filter((m) => matchesLeagueFilter(m.league, selectedLeagues));
+  const upcoming = footballMatches
+    .filter((m) => matchesLeagueFilter(m.league, selectedLeagues))
+    .sort((a, b) => isLigaA ? a.startTimestamp - b.startTimestamp : 0);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
