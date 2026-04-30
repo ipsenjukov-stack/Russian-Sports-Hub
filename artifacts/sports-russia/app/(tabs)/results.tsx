@@ -19,6 +19,7 @@ import { LeagueDropdown } from "@/components/LeagueDropdown";
 import { GearButton } from "@/components/GearButton";
 import { useLeague } from "@/context/LeagueContext";
 import { Match } from "@/types/sports";
+import { matchesLeagueFilter } from "@/utils/leagueUtils";
 
 function roundSortKey(name: string): number {
   // "Тур N" (translated from "Group X - N")
@@ -63,7 +64,7 @@ export default function ResultsScreen() {
 
   const finished = (allMatches || [])
     .filter((m) => m.status === "finished" && m.sport === "football")
-    .filter((m) => selectedLeagues.length === 0 || selectedLeagues.includes(m.league ?? ""))
+    .filter((m) => matchesLeagueFilter(m.league, selectedLeagues))
     .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
 
   const groups = groupByRound(finished);

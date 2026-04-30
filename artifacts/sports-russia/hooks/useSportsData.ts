@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { fetchAllMatches, fetchSeasonMatches } from "@/services/sportsdb";
 import { Match, SportType } from "@/types/sports";
 import { Platform } from "react-native";
@@ -88,6 +88,23 @@ export function useStandings(sport: string, league?: string) {
     staleTime: 30 * 60 * 1000,
     retry: 1,
   });
+}
+
+export function useLigaAStandings(leagues: readonly string[]) {
+  const results = useQueries({
+    queries: leagues.map((lg) => ({
+      queryKey: ["standings", lg],
+      queryFn: () => fetchStandings("football", lg),
+      staleTime: 30 * 60 * 1000,
+      retry: 1,
+    })),
+  });
+  return {
+    data: results.map((r) => r.data ?? null),
+    isLoading: results.some((r) => r.isLoading),
+    isError: results.some((r) => r.isError),
+    refetch: () => results.forEach((r) => r.refetch()),
+  };
 }
 
 export function useAllMatches() {

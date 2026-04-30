@@ -7,16 +7,18 @@ import {
   Image,
   Platform,
   RefreshControl,
+  TouchableOpacity,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
-import { useStandings, StandingEntry } from "@/hooks/useSportsData";
+import { useStandings, useLigaAStandings, StandingEntry } from "@/hooks/useSportsData";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
 import { LeagueDropdown } from "@/components/LeagueDropdown";
 import { useLeague } from "@/context/LeagueContext";
+import { LIGA_A_KEY, LIGA_A_PHASE1, LIGA_A_PHASE2 } from "@/utils/leagueUtils";
 
 const LOCAL_TEAM_LOGOS: Record<string, ReturnType<typeof require>> = {
   "ФК Сочи":          require("@/assets/images/team-sochi-nobg.png"),
@@ -118,6 +120,91 @@ function StandingsTable({ entries, colors }: { entries: StandingEntry[]; colors:
   );
 }
 
+function LigaAStandingsView({ colors, bottomPadding }: {
+  colors: ReturnType<typeof useColors>;
+  bottomPadding: number;
+}) {
+  const [phase, setPhase] = useState<1 | 2>(1);
+  const queryClient = useQueryClient();
+  const leagues = phase === 1 ? LIGA_A_PHASE1 : LIGA_A_PHASE2;
+  const { data, isLoading, isError, refetch } = useLigaAStandings(leagues);
+
+  const [goldData, silverData] = data;
+  const goldLabel  = phase === 1 ? "Группа Золото" : "Весна Золото";
+  const silverLabel = phase === 1 ? "Группа Серебро" : "Весна Серебро";
+
+  return (
+    <>
+      <View style={[styles.phaseRow, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity
+          onPress={() => setPhase(1)}
+          style={[styles.phaseBtn, { borderColor: phase === 1 ? colors.primary : colors.border, backgroundColor: phase === 1 ? colors.primary + "18" : "transparent" }]}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.phaseBtnText, { color: phase === 1 ? colors.primary : colors.mutedForeground }]}>1-й этап</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setPhase(2)}
+          style={[styles.phaseBtn, { borderColor: phase === 2 ? colors.primary : colors.border, backgroundColor: phase === 2 ? colors.primary + "18" : "transparent" }]}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.phaseBtnText, { color: phase === 2 ? colors.primary : colors.mutedForeground }]}>2-й этап</Text>
+        </TouchableOpacity>
+      </View>
+
+      {isLoading ? (
+        <LoadingState count={10} />
+      ) : isError ? (
+        <ErrorState onRetry={refetch} />
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={{ paddingBottom: bottomPadding }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={false}
+              onRefresh={() => {
+                queryClient.invalidateQueries({ queryKey: ["standings", leagues[0]] });
+                queryClient.invalidateQueries({ queryKey: ["standings", leagues[1]] });
+              }}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.tableWrapper}>
+              {(goldData?.entries?.length ?? 0) > 0 && (
+                <>
+                  <View style={[styles.groupLabel, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.groupLabelText, { color: colors.foreground }]}>🥇 {goldLabel}</Text>
+                    {goldData?.season ? <Text style={[styles.groupSeason, { color: colors.mutedForeground }]}>{goldData.season}</Text> : null}
+                  </View>
+                  <StandingsTable entries={goldData!.entries} colors={colors} />
+                </>
+              )}
+              {(silverData?.entries?.length ?? 0) > 0 && (
+                <>
+                  <View style={[styles.groupLabel, { borderBottomColor: colors.border, marginTop: 16 }]}>
+                    <Text style={[styles.groupLabelText, { color: colors.foreground }]}>🥈 {silverLabel}</Text>
+                    {silverData?.season ? <Text style={[styles.groupSeason, { color: colors.mutedForeground }]}>{silverData.season}</Text> : null}
+                  </View>
+                  <StandingsTable entries={silverData!.entries} colors={colors} />
+                </>
+              )}
+            </View>
+          </ScrollView>
+          <View style={[styles.legend, { borderTopColor: colors.border }]}>
+            <Text style={[styles.legendText, { color: colors.mutedForeground }]}>
+              М — матчи · ЗГ — забито · ПГ — пропущено · РМ — разница · О — очки
+            </Text>
+          </View>
+        </ScrollView>
+      )}
+    </>
+  );
+}
+
 export default function StandingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -125,14 +212,15 @@ export default function StandingsScreen() {
   const { selectedLeagues, setSelectedLeagues } = useLeague();
 
   const selectedLeague = selectedLeagues[0] ?? "Российская Премьер-лига";
-  const { data, isLoading, isError, refetch } = useStandings("football", selectedLeague);
+  const isLigaA = selectedLeague === LIGA_A_KEY;
+
+  const { data, isLoading, isError, refetch } = useStandings("football", isLigaA ? undefined : selectedLeague);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
 
   const hasEntries = !isLoading && !isError && (data?.entries?.length ?? 0) > 0;
   const hasMessage = !isLoading && !isError && !hasEntries && data?.message;
-  const noData = !isLoading && !isError && !hasEntries && !hasMessage;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -140,10 +228,12 @@ export default function StandingsScreen() {
         <View style={styles.titleRow}>
           <View>
             <Text style={[styles.title, { color: colors.foreground }]}>Таблицы</Text>
-            {data?.season ? (
+            {!isLigaA && data?.season ? (
               <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
                 {selectedLeague} · {data.season}
               </Text>
+            ) : isLigaA ? (
+              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Вторая Лига А</Text>
             ) : null}
           </View>
           <GearButton />
@@ -151,7 +241,9 @@ export default function StandingsScreen() {
         <LeagueDropdown selected={selectedLeagues} onSelect={setSelectedLeagues} />
       </View>
 
-      {isLoading ? (
+      {isLigaA ? (
+        <LigaAStandingsView colors={colors} bottomPadding={bottomPadding} />
+      ) : isLoading ? (
         <LoadingState count={10} />
       ) : isError ? (
         <ErrorState onRetry={refetch} />
@@ -222,6 +314,23 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     marginTop: 2,
   },
+  phaseRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  phaseBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  phaseBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
   scroll: { flex: 1 },
   tableWrapper: {
     minWidth: "100%",
@@ -235,6 +344,22 @@ const styles = StyleSheet.create({
   leagueLabelText: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
+  },
+  groupLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  groupLabelText: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+  },
+  groupSeason: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
   },
   table: {
     width: "100%",

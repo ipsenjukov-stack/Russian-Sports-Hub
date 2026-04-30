@@ -22,6 +22,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useLeague } from "@/context/LeagueContext";
+import { matchesLeagueFilter } from "@/utils/leagueUtils";
 import { scheduleMatchReminders, registerWithBackend, DEFAULT_NOTIF_PREFS, NotifPrefs } from "@/services/pushNotifications";
 
 export default function HomeScreen() {
@@ -63,9 +64,7 @@ export default function HomeScreen() {
 
   // Only football matches, filtered by selected leagues (empty = all)
   const footballMatches = (allMatches || []).filter((m) => m.sport === "football");
-  const matches = selectedLeagues.length === 0
-    ? footballMatches
-    : footballMatches.filter((m) => selectedLeagues.includes(m.league ?? ""));
+  const matches = footballMatches.filter((m) => matchesLeagueFilter(m.league, selectedLeagues));
 
   const liveMatches = matches.filter((m) => m.status === "live");
 

@@ -19,6 +19,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
 import { useLeague } from "@/context/LeagueContext";
+import { matchesLeagueFilter } from "@/utils/leagueUtils";
 
 export default function ScheduleScreen() {
   const colors = useColors();
@@ -31,9 +32,7 @@ export default function ScheduleScreen() {
     (m) => m.status === "upcoming" && m.sport === "football"
   );
 
-  const upcoming = selectedLeagues.length === 0
-    ? footballMatches
-    : footballMatches.filter((m) => selectedLeagues.includes(m.league ?? ""));
+  const upcoming = footballMatches.filter((m) => matchesLeagueFilter(m.league, selectedLeagues));
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;

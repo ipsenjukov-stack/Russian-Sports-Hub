@@ -25,9 +25,8 @@ const RUSSIAN_FOOTBALL_LEAGUES = [
   { id: 653, name: "Вторая Лига Б. Группа 4",        year: 2026 },
   { id: 1025, name: "Вторая Лига А. Группа Золото",  year: 2025 },
   { id: 1026, name: "Вторая Лига А. Группа Серебро", year: 2025 },
-  { id: 1121, name: "Вторая Лига А. Плей-офф",           year: 2025 },
-  { id: 1061, name: "Вторая Лига А. Весна Золото",        year: 2025 },
-  { id: 1064, name: "Вторая Лига А. Весна Серебро",       year: 2025 },
+  { id: 1061, name: "Вторая Лига А. Весна Золото",        year: 2024 },
+  { id: 1064, name: "Вторая Лига А. Весна Серебро",       year: 2024 },
   { id: 237, name: "FONBET Кубок России",            year: 2025 },
   { id: 663, name: "OLIMPBET Суперкубок России",     year: 2025 },
   { id: 649, name: "Высший дивизион. Женщины",       year: 2025 },
@@ -1777,7 +1776,7 @@ type StandingEntry = {
 };
 
 // Leagues with no table (cups / playoff stages)
-const NO_STANDINGS_LEAGUES = new Set(["FONBET Кубок России", "OLIMPBET Суперкубок России", "Вторая Лига А. Плей-офф"]);
+const NO_STANDINGS_LEAGUES = new Set(["FONBET Кубок России", "OLIMPBET Суперкубок России"]);
 
 router.get("/sports/standings", async (req, res) => {
   const { sport = "football", league } = req.query as { sport?: string; league?: string };
