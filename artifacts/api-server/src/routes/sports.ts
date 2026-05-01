@@ -1811,33 +1811,109 @@ function classifyRound(name: string): CupPath | null {
   return null;
 }
 
+// Set of sstats team IDs that belong to the RPL cup path
+const RPL_TEAM_IDS = new Set(Object.keys(SSTATS_RPL_TEAM_NAMES).map(Number));
+
 function mapCupMatch(m: Record<string, unknown>) {
+  const played = (m.strStatus as string) === "finished" || (m.strStatus as string) === "live";
   return {
-    homeTeam:  m.strHomeTeam  as string,
-    awayTeam:  m.strAwayTeam  as string,
-    homeBadge: m.strHomeTeamBadge as string,
-    awayBadge: m.strAwayTeamBadge as string,
-    homeScore: m.intHomeScore != null ? Number(m.intHomeScore) : null,
-    awayScore: m.intAwayScore != null ? Number(m.intAwayScore) : null,
-    status:    m.strStatus    as string,
-    date:      m.dateEvent    as string,
-    time:      m.strTime      as string,
+    homeTeam:   m.strHomeTeam  as string,
+    awayTeam:   m.strAwayTeam  as string,
+    homeBadge:  m.strHomeTeamBadge as string,
+    awayBadge:  m.strAwayTeamBadge as string,
+    homeScore:  played && m.intHomeScore  != null ? Number(m.intHomeScore)  : null,
+    awayScore:  played && m.intAwayScore  != null ? Number(m.intAwayScore)  : null,
+    homeScore2: m._homeLeg2 != null ? Number(m._homeLeg2) : null,
+    awayScore2: m._awayLeg2 != null ? Number(m._awayLeg2) : null,
+    status:     m.strStatus    as string,
+    date:       m.dateEvent    as string,
+    time:       m.strTime      as string,
   };
+}
+
+// Compute winning team IDs from a set of merged two-legged matches (only counts truly merged ties)
+function computeWinners(matches: Array<Record<string, unknown>>): Set<number> {
+  const winners = new Set<number>();
+  for (const m of matches) {
+    // Skip unmerged single-leg matches (no _homeLeg2 field)
+    if (m._homeLeg2 == null) continue;
+    const hId  = m._homeTeamId as number;
+    const aId  = m._awayTeamId as number;
+    const hAgg = (m.intHomeScore != null ? Number(m.intHomeScore) : 0) + Number(m._homeLeg2);
+    const aAgg = (m.intAwayScore != null ? Number(m.intAwayScore) : 0) + (m._awayLeg2 != null ? Number(m._awayLeg2) : 0);
+    winners.add(hAgg >= aAgg ? hId : aId);
+  }
+  return winners;
+}
+
+// Merge two-legged ties: pair "A vs B" with "B vs A" in the same round
+function mergeLegs(matches: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  const result: Array<Record<string, unknown>> = [];
+  const used = new Set<number>();
+  for (let i = 0; i < matches.length; i++) {
+    if (used.has(i)) continue;
+    const m1 = matches[i];
+    const hId = m1._homeTeamId as number;
+    const aId = m1._awayTeamId as number;
+    // Find the reverse leg (away team at home)
+    const j = matches.findIndex((m2, idx) =>
+      idx > i && !used.has(idx) &&
+      (m2._homeTeamId as number) === aId && (m2._awayTeamId as number) === hId
+    );
+    if (j !== -1) {
+      used.add(j);
+      const m2 = matches[j];
+      // Earlier date = leg 1
+      const leg1 = (m1.dateEvent as string) <= (m2.dateEvent as string) ? m1 : m2;
+      const leg2 = leg1 === m1 ? m2 : m1;
+      // leg1 home team scored leg1.intHomeScore in leg1 and leg2.intAwayScore in leg2
+      result.push({
+        ...leg1,
+        _homeLeg2: leg2.intAwayScore, // leg1 home team was AWAY in leg2
+        _awayLeg2: leg2.intHomeScore, // leg1 away team was HOME in leg2
+        strStatus: leg2.strStatus ?? leg1.strStatus,
+      });
+    } else {
+      result.push(m1);
+    }
+    used.add(i);
+  }
+  return result;
 }
 
 function buildPath(
   roundMap: Map<string, Array<Record<string, unknown>>>,
   order: Record<string, number> | null,
   sortFn?: (name: string) => number,
+  opts?: { filterRpl?: boolean; mergeLegsFlag?: boolean },
 ) {
   const sorter = sortFn ?? ((n: string) => order?.[n] ?? 99);
   const rounds = [...roundMap.entries()]
     .filter(([name]) => order === null || name in order)
     .sort(([a], [b]) => sorter(a) - sorter(b))
-    .map(([name, matches]) => ({
-      name,
-      matches: matches.map(mapCupMatch).sort((a, b) => a.date.localeCompare(b.date)),
-    }));
+    .map(([name, rawMatches]) => {
+      let matches = rawMatches;
+      // RPL filter: only keep matches where both teams are RPL path teams
+      if (opts?.filterRpl) {
+        matches = matches.filter(m =>
+          RPL_TEAM_IDS.has(m._homeTeamId as number) &&
+          RPL_TEAM_IDS.has(m._awayTeamId as number)
+        );
+      }
+      // Merge two-legged ties
+      if (opts?.mergeLegsFlag) {
+        matches = mergeLegs(matches);
+        // Remove unmatched single-leg finished matches (they belong to other sub-competitions)
+        matches = matches.filter(m =>
+          m._homeLeg2 != null ||                  // merged two-legged
+          (m.strStatus as string) !== "finished"  // or not yet played
+        );
+      }
+      return {
+        name,
+        matches: matches.map(mapCupMatch).sort((a, b) => a.date.localeCompare(b.date)),
+      };
+    });
   return { rounds };
 }
 
@@ -1872,14 +1948,39 @@ router.get("/sports/cup-bracket", async (req, res) => {
       buckets[path].get(roundName)!.push(e);
     }
 
+    const playoffResult = buildPath(buckets.playoff, PLAYOFF_ROUND_ORDER, undefined, { filterRpl: true, mergeLegsFlag: true });
+
+    // Filter Final round: only keep matches where both teams are SF winners
+    const sfRound = playoffResult.rounds.find(r => r.name === "Полуфиналы");
+    if (sfRound && sfRound.matches.length > 0) {
+      const sfRaw = buckets.playoff.get("Полуфиналы") ?? [];
+      const sfMerged = mergeLegs(sfRaw.filter(m =>
+        RPL_TEAM_IDS.has(m._homeTeamId as number) && RPL_TEAM_IDS.has(m._awayTeamId as number)
+      ));
+      const sfWinners = computeWinners(sfMerged);
+      const finalRound = playoffResult.rounds.find(r => r.name === "Финал");
+      if (finalRound && finalRound.matches.length > 1 && sfWinners.size > 0) {
+        const finalRaw = buckets.playoff.get("Финал") ?? [];
+        finalRound.matches = finalRaw
+          .filter(m => RPL_TEAM_IDS.has(m._homeTeamId as number) && RPL_TEAM_IDS.has(m._awayTeamId as number))
+          .filter(m => sfWinners.has(m._homeTeamId as number) && sfWinners.has(m._awayTeamId as number))
+          .slice(0, 1)
+          .map(mapCupMatch);
+      }
+    }
+
     const result = {
       league,
       regions: buildPath(buckets.regions, null, regionsOrder),
       rpl:     buildPath(buckets.rpl,     RPL_ROUND_ORDER),
-      playoff: buildPath(buckets.playoff, PLAYOFF_ROUND_ORDER),
+      playoff: playoffResult,
     };
 
-    cupBracketCache = { data: result, fetchedAt: Date.now() };
+    // Only cache if data looks complete (at least some playoff matches)
+    const totalPlayoff = result.playoff.rounds.reduce((s, r) => s + r.matches.length, 0);
+    if (totalPlayoff > 0) {
+      cupBracketCache = { data: result, fetchedAt: Date.now() };
+    }
     return res.json(result);
   } catch (e) {
     req.log.error(e, "cup-bracket error");

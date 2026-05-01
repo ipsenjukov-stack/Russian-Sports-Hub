@@ -89,6 +89,7 @@ async function fetchStandings(sport: string, league?: string): Promise<Standings
 export interface CupMatch {
   homeTeam: string; awayTeam: string;
   homeBadge: string; awayBadge: string;
+  homeScore2?: number | null; awayScore2?: number | null;
   homeScore: number | null; awayScore: number | null;
   status: string; date: string; time: string;
 }

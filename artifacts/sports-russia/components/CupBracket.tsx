@@ -8,7 +8,7 @@ import { CupRound, CupMatch, CupBracketData, useSeasonMatches } from "@/hooks/us
 import { CUP_RPL_GROUPS, CUP_RPL_ZONES, type GroupEntry } from "@/data/cupRplStandings";
 
 // ── bracket geometry ──────────────────────────────────────────────────────────
-const CARD_W  = 152;
+const CARD_W  = 172;
 const CARD_H  = 66;
 const ARM_W   = 18;
 const LINE_PX = 1.5;
@@ -46,17 +46,24 @@ function formatDate(date: string, time?: string): string {
 
 // ── match card (used in both bracket + list) ──────────────────────────────────
 function MatchCard({ match, compact = false }: { match: CupMatch; compact?: boolean }) {
-  const colors = useColors();
+  const colors   = useColors();
   const finished = match.status === "finished";
   const live     = match.status === "live";
   const hasScore = match.homeScore !== null && match.awayScore !== null;
-  const homeWon  = finished && hasScore && match.homeScore! > match.awayScore!;
-  const awayWon  = finished && hasScore && match.awayScore! > match.homeScore!;
+  const twoLegs  = match.homeScore2 != null && match.awayScore2 != null;
 
-  const rowStyle = (won: boolean) => [
-    cs.teamRow,
-    { opacity: finished && !won && hasScore ? 0.55 : 1 },
-  ];
+  // Aggregate score winner (two-legged) or single-match winner
+  const homeAgg = twoLegs ? (match.homeScore ?? 0) + match.homeScore2! : (match.homeScore ?? 0);
+  const awayAgg = twoLegs ? (match.awayScore ?? 0) + match.awayScore2! : (match.awayScore ?? 0);
+  const homeWon = finished && hasScore && homeAgg > awayAgg;
+  const awayWon = finished && hasScore && awayAgg > homeAgg;
+
+  const dim = (won: boolean) => finished && !won && hasScore ? 0.55 : 1;
+
+  const ScoreCell = ({ val, won }: { val: number | null | undefined; won: boolean }) =>
+    val != null
+      ? <Text style={[cs.scoreCell, { color: won ? colors.primary : colors.foreground, fontFamily: won ? "Inter_700Bold" : "Inter_500Medium" }]}>{val}</Text>
+      : <Text style={[cs.scoreCell, { color: colors.mutedForeground }]}>–</Text>;
 
   return (
     <View style={[cs.card, {
@@ -66,22 +73,34 @@ function MatchCard({ match, compact = false }: { match: CupMatch; compact?: bool
       paddingHorizontal: compact ? 6 : 8,
       paddingVertical: compact ? 4 : 6,
     }]}>
-      <View style={rowStyle(homeWon)}>
+      {/* Home row */}
+      <View style={[cs.teamRow, { opacity: dim(homeWon) }]}>
         <SmallBadge uri={match.homeBadge} name={match.homeTeam} size={compact ? 14 : 18} />
         <Text numberOfLines={1} style={[cs.teamName, { color: colors.foreground, fontFamily: homeWon ? "Inter_700Bold" : "Inter_500Medium", fontSize: compact ? 10 : 11 }]}>
           {match.homeTeam}
         </Text>
-        {hasScore
+        {twoLegs ? (
+          <View style={cs.scoreGroup}>
+            <ScoreCell val={match.homeScore} won={homeWon} />
+            <ScoreCell val={match.homeScore2} won={homeWon} />
+          </View>
+        ) : hasScore
           ? <Text style={[cs.score, { color: homeWon ? colors.primary : colors.foreground, fontFamily: homeWon ? "Inter_700Bold" : "Inter_500Medium" }]}>{match.homeScore}</Text>
           : <Text style={[cs.scoreDash, { color: colors.mutedForeground }]}>–</Text>}
       </View>
       <View style={[cs.divider, { backgroundColor: colors.border }]} />
-      <View style={rowStyle(awayWon)}>
+      {/* Away row */}
+      <View style={[cs.teamRow, { opacity: dim(awayWon) }]}>
         <SmallBadge uri={match.awayBadge} name={match.awayTeam} size={compact ? 14 : 18} />
         <Text numberOfLines={1} style={[cs.teamName, { color: colors.foreground, fontFamily: awayWon ? "Inter_700Bold" : "Inter_500Medium", fontSize: compact ? 10 : 11 }]}>
           {match.awayTeam}
         </Text>
-        {hasScore
+        {twoLegs ? (
+          <View style={cs.scoreGroup}>
+            <ScoreCell val={match.awayScore} won={awayWon} />
+            <ScoreCell val={match.awayScore2} won={awayWon} />
+          </View>
+        ) : hasScore
           ? <Text style={[cs.score, { color: awayWon ? colors.primary : colors.foreground, fontFamily: awayWon ? "Inter_700Bold" : "Inter_500Medium" }]}>{match.awayScore}</Text>
           : <Text style={[cs.scoreDash, { color: colors.mutedForeground }]}>{formatDate(match.date, match.time)}</Text>}
       </View>
@@ -425,6 +444,8 @@ const cs = StyleSheet.create({
   teamName: { flex: 1 },
   score: { fontSize: 14, width: 18, textAlign: "center" },
   scoreDash: { fontSize: 11, textAlign: "right" },
+  scoreCell: { fontSize: 13, width: 18, textAlign: "center" },
+  scoreGroup: { flexDirection: "row", gap: 2 },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 2 },
   badge: { alignItems: "center", justifyContent: "center", flexShrink: 0 },
   livePill: { position: "absolute", top: 2, right: 4, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 },
