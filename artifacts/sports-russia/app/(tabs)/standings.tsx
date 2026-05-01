@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
-import { useStandings, StandingEntry } from "@/hooks/useSportsData";
+import { useStandings, StandingEntry, useSeasonMatches } from "@/hooks/useSportsData";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
@@ -142,14 +142,43 @@ function StandingsTable({ entries, colors, showWDL = false }: {
   );
 }
 
+const BADGE_NAME_ALIASES: Record<string, string> = {
+  "Волгарь":          "Волгарь Астрахань",
+  "Алания":           "Алания Владикавказ",
+  "Динамо Москва 2":  "Динамо-2 Москва",
+  "Родина-2":         "Родина-2 Москва",
+  "Амкар":            "Амкар Пермь",
+  "Зенит 2":          "Зенит-2 Санкт-Петербург",
+  "Сибирь":           "Новосибирск",
+};
+
+function useBadgeMap() {
+  const { data: matches } = useSeasonMatches();
+  const raw: Record<string, string> = {};
+  for (const m of matches ?? []) {
+    if (m.homeTeam.name && m.homeTeam.logo) raw[m.homeTeam.name] = m.homeTeam.logo;
+    if (m.awayTeam.name && m.awayTeam.logo) raw[m.awayTeam.name] = m.awayTeam.logo;
+  }
+  const map: Record<string, string> = { ...raw };
+  for (const [alias, canonical] of Object.entries(BADGE_NAME_ALIASES)) {
+    if (raw[canonical]) map[alias] = raw[canonical];
+  }
+  return map;
+}
+
+function withBadges(entries: StandingEntry[], badgeMap: Record<string, string>): StandingEntry[] {
+  return entries.map((e) => ({ ...e, badge: badgeMap[e.team] ?? "" }));
+}
+
 function LigaAStandingsView({ colors, bottomPadding }: {
   colors: ReturnType<typeof useColors>;
   bottomPadding: number;
 }) {
   const [phase, setPhase] = useState<1 | 2>(2);
+  const badgeMap = useBadgeMap();
 
-  const goldEntries   = phase === 1 ? LIGA_A_PHASE1_GOLD   : LIGA_A_PHASE2_GOLD;
-  const silverEntries = phase === 1 ? LIGA_A_PHASE1_SILVER : LIGA_A_PHASE2_SILVER;
+  const goldEntries   = withBadges(phase === 1 ? LIGA_A_PHASE1_GOLD   : LIGA_A_PHASE2_GOLD,   badgeMap);
+  const silverEntries = withBadges(phase === 1 ? LIGA_A_PHASE1_SILVER : LIGA_A_PHASE2_SILVER, badgeMap);
   const seasonLabel   = phase === 1 ? "Осень 2024" : "Весна 2026";
 
   return (
