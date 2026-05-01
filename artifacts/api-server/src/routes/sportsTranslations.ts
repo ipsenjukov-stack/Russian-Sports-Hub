@@ -195,7 +195,7 @@ export const TEAM_TRANSLATIONS: Record<string, string> = {
   "Tekstilshchik": "Текстильщик",
   "Torpedo Miass": "Торпедо Миасс",
   "Tyumen": "Тюмень",
-  "Urozhay": "Урожай Краснодар",
+  "Urozhay": "Кубань Краснодар",
   "Veles": "Велес Москва",
   "Volgar Astrakhan": "Волгарь Астрахань",
 
