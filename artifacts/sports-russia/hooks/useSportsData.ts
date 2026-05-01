@@ -118,6 +118,11 @@ export function useAllMatches() {
     queryFn: fetchAllMatches,
     staleTime: 5 * 60 * 1000,
     retry: 2,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      const hasLive = Array.isArray(data) && data.some((m) => m.status === "live");
+      return hasLive ? 10_000 : false;
+    },
   });
 }
 
