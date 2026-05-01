@@ -12,7 +12,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
-import { useStandings, StandingEntry, useSeasonMatches, useLigaAPhase2Standings } from "@/hooks/useSportsData";
+import { useStandings, StandingEntry, useSeasonMatches, useLigaAPhase2Standings, useCupBracket } from "@/hooks/useSportsData";
+import { CupBracket } from "@/components/CupBracket";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
@@ -256,8 +257,10 @@ export default function StandingsScreen() {
 
   const selectedLeague = selectedLeagues[0] ?? "Российская Премьер-лига";
   const isLigaA = selectedLeague === LIGA_A_KEY;
+  const isCup   = selectedLeague === "FONBET Кубок России";
 
-  const { data, isLoading, isError, refetch } = useStandings("football", isLigaA ? undefined : selectedLeague);
+  const { data, isLoading, isError, refetch } = useStandings("football", isLigaA || isCup ? undefined : selectedLeague);
+  const { data: cupData, isLoading: cupLoading, isError: cupError, refetch: cupRefetch } = useCupBracket(selectedLeague);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
@@ -271,12 +274,14 @@ export default function StandingsScreen() {
         <View style={styles.titleRow}>
           <View>
             <Text style={[styles.title, { color: colors.foreground }]}>Таблицы</Text>
-            {!isLigaA && data?.season ? (
+            {isLigaA ? (
+              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Вторая Лига А</Text>
+            ) : isCup ? (
+              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>FONBET Кубок России</Text>
+            ) : data?.season ? (
               <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
                 {selectedLeague} · {data.season}
               </Text>
-            ) : isLigaA ? (
-              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Вторая Лига А</Text>
             ) : null}
           </View>
           <GearButton />
@@ -286,6 +291,11 @@ export default function StandingsScreen() {
 
       {isLigaA ? (
         <LigaAStandingsView colors={colors} bottomPadding={bottomPadding} />
+      ) : isCup ? (
+        cupLoading ? <LoadingState count={6} /> :
+        cupError   ? <ErrorState onRetry={cupRefetch} /> :
+        cupData    ? <CupBracket data={cupData} bottomPadding={bottomPadding} /> :
+        <LoadingState count={6} />
       ) : isLoading ? (
         <LoadingState count={10} />
       ) : isError ? (

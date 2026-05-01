@@ -86,6 +86,49 @@ async function fetchStandings(sport: string, league?: string): Promise<Standings
   return data;
 }
 
+export interface CupMatch {
+  homeTeam: string; awayTeam: string;
+  homeBadge: string; awayBadge: string;
+  homeScore: number | null; awayScore: number | null;
+  status: string; date: string; time: string;
+}
+export interface CupRound { name: string; matches: CupMatch[] }
+export interface CupPath  { rounds: CupRound[] }
+export interface CupBracketData {
+  league: string;
+  regions: CupPath;
+  rpl:     CupPath;
+  playoff: CupPath;
+}
+
+async function fetchCupBracket(league: string): Promise<CupBracketData> {
+  const base = getApiBase();
+  const url = `${base}/api/sports/cup-bracket?league=${encodeURIComponent(league)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("cup-bracket fetch failed");
+  const data = await res.json() as CupBracketData;
+  if (base) {
+    const fixBadges = (rounds: CupRound[] | undefined) =>
+      rounds?.forEach(r => r.matches?.forEach(m => {
+        m.homeBadge = absUrl(m.homeBadge, base);
+        m.awayBadge = absUrl(m.awayBadge, base);
+      }));
+    fixBadges(data.regions?.rounds);
+    fixBadges(data.rpl?.rounds);
+    fixBadges(data.playoff?.rounds);
+  }
+  return data;
+}
+
+export function useCupBracket(league: string) {
+  return useQuery<CupBracketData>({
+    queryKey: ["cupBracket", league],
+    queryFn: () => fetchCupBracket(league),
+    staleTime: 15 * 60 * 1000,
+    retry: 1,
+  });
+}
+
 export function useStandings(sport: string, league?: string) {
   return useQuery<StandingsData>({
     queryKey: ["standings", league ?? sport],

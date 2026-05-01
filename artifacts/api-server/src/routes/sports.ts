@@ -1775,6 +1775,118 @@ type StandingEntry = {
   form?: string; description?: string;
 };
 
+// ── Cup Bracket ───────────────────────────────────────────────────────────────
+
+// Round sort order within each path
+const REGIONS_ROUND_ORDER: Record<string, number> = {
+  "Региональный этап — 1-й тур":        0,
+  "Региональный этап — 2-й тур":        1,
+  "Региональный этап — 3-й тур":        2,
+  "Региональный этап — 4-й тур":        3,
+  "Региональный этап — Полуфиналы":     4,
+};
+const RPL_ROUND_ORDER: Record<string, number> = {
+  "1/32 финала": 0,
+  "1/16 финала": 1,
+  "1/8 финала":  2,
+};
+const PLAYOFF_ROUND_ORDER: Record<string, number> = {
+  "Четвертьфиналы": 0,
+  "Полуфиналы":     1,
+  "Финал":          2,
+};
+
+// Sort key within the regions path: extract trailing number or default high
+function regionsOrder(name: string): number {
+  if (name in REGIONS_ROUND_ORDER) return REGIONS_ROUND_ORDER[name];
+  const n = name.match(/(\d+)/);
+  return n ? Number(n[1]) : 50;
+}
+
+type CupPath = "regions" | "rpl" | "playoff";
+function classifyRound(name: string): CupPath | null {
+  if (name.startsWith("Региональный этап")) return "regions";
+  if (name in RPL_ROUND_ORDER)              return "rpl";
+  if (name in PLAYOFF_ROUND_ORDER)          return "playoff";
+  return null;
+}
+
+function mapCupMatch(m: Record<string, unknown>) {
+  return {
+    homeTeam:  m.strHomeTeam  as string,
+    awayTeam:  m.strAwayTeam  as string,
+    homeBadge: m.strHomeTeamBadge as string,
+    awayBadge: m.strAwayTeamBadge as string,
+    homeScore: m.intHomeScore != null ? Number(m.intHomeScore) : null,
+    awayScore: m.intAwayScore != null ? Number(m.intAwayScore) : null,
+    status:    m.strStatus    as string,
+    date:      m.dateEvent    as string,
+    time:      m.strTime      as string,
+  };
+}
+
+function buildPath(
+  roundMap: Map<string, Array<Record<string, unknown>>>,
+  order: Record<string, number> | null,
+  sortFn?: (name: string) => number,
+) {
+  const sorter = sortFn ?? ((n: string) => order?.[n] ?? 99);
+  const rounds = [...roundMap.entries()]
+    .filter(([name]) => order === null || name in order)
+    .sort(([a], [b]) => sorter(a) - sorter(b))
+    .map(([name, matches]) => ({
+      name,
+      matches: matches.map(mapCupMatch).sort((a, b) => a.date.localeCompare(b.date)),
+    }));
+  return { rounds };
+}
+
+let cupBracketCache: { data: unknown; fetchedAt: number } | null = null;
+const CUP_BRACKET_CACHE_TTL = 15 * 60 * 1000;
+
+router.get("/sports/cup-bracket", async (req, res) => {
+  const { league = "FONBET Кубок России" } = req.query as { league?: string };
+  try {
+    if (cupBracketCache && Date.now() - cupBracketCache.fetchedAt < CUP_BRACKET_CACHE_TTL) {
+      return res.json(cupBracketCache.data);
+    }
+
+    const cfg = (RUSSIAN_FOOTBALL_LEAGUES as ReadonlyArray<{ id: number; name: string; year: number }>)
+      .find((l) => l.name === league);
+    if (!cfg) return res.json({ league, regions: { rounds: [] }, rpl: { rounds: [] }, playoff: { rounds: [] } });
+
+    const events = await fetchSstatsLeagueSeasonEvents(cfg.id, cfg.name, "", cfg.year) as Array<Record<string, unknown>>;
+
+    // Bucket events by path + round
+    const buckets: Record<CupPath, Map<string, Array<Record<string, unknown>>>> = {
+      regions: new Map(),
+      rpl:     new Map(),
+      playoff: new Map(),
+    };
+
+    for (const e of events) {
+      const roundName = (e._roundName as string) ?? "";
+      const path = classifyRound(roundName);
+      if (!path) continue;
+      if (!buckets[path].has(roundName)) buckets[path].set(roundName, []);
+      buckets[path].get(roundName)!.push(e);
+    }
+
+    const result = {
+      league,
+      regions: buildPath(buckets.regions, null, regionsOrder),
+      rpl:     buildPath(buckets.rpl,     RPL_ROUND_ORDER),
+      playoff: buildPath(buckets.playoff, PLAYOFF_ROUND_ORDER),
+    };
+
+    cupBracketCache = { data: result, fetchedAt: Date.now() };
+    return res.json(result);
+  } catch (e) {
+    req.log.error(e, "cup-bracket error");
+    return res.status(500).json({ error: "Failed to fetch cup bracket" });
+  }
+});
+
 // Leagues with no table (cups / playoff stages)
 const NO_STANDINGS_LEAGUES = new Set(["FONBET Кубок России", "OLIMPBET Суперкубок России"]);
 
