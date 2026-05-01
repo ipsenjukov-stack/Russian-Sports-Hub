@@ -162,7 +162,7 @@ export function useUpcomingMatches(sport?: SportType) {
 
 // Matches played on or before this date are already captured in the static Phase 2 tables.
 // Only matches AFTER this date are applied on top of the static data.
-const PHASE2_CUTOFF = "2025-09-21";
+const PHASE2_CUTOFF = "2026-04-30";
 
 // Maps API (ESPN) team name → static table team name for Phase 2 Gold
 const GOLD_API_TO_STATIC: Record<string, string> = {
