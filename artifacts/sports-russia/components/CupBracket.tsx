@@ -150,29 +150,35 @@ function ConnectorCol({ roundIdx, leftCount, lineColor, canvasH }: {
 // ── playoff view — bracket if ≤8 QF matches and power-of-2 structure, else list ──
 function PlayoffView({ rounds, bottomPadding }: { rounds: CupRound[]; bottomPadding: number }) {
   if (!rounds.length) return <EmptyState text="Плей-офф ещё не начался" />;
-  // Use bracket only if first round has ≤8 single-leg matches (clean structure)
-  const firstCount = rounds[0]?.matches?.length ?? 0;
-  const isPowerOf2 = firstCount > 0 && (firstCount & (firstCount - 1)) === 0;
+  // Separate 3rd-place from main bracket rounds
+  const mainRounds  = rounds.filter(r => r.name !== "Матч за 3-е место");
+  const thirdRounds = rounds.filter(r => r.name === "Матч за 3-е место");
+  const firstCount  = mainRounds[0]?.matches?.length ?? 0;
+  const isPowerOf2  = firstCount > 0 && (firstCount & (firstCount - 1)) === 0;
   if (isPowerOf2 && firstCount <= 8) {
-    return <BracketView rounds={rounds} bottomPadding={bottomPadding} />;
+    return <BracketView mainRounds={mainRounds} thirdRounds={thirdRounds} bottomPadding={bottomPadding} />;
   }
   return <ListView rounds={rounds} bottomPadding={bottomPadding} />;
 }
 
 // ── bracket view (Плей-офф) ───────────────────────────────────────────────────
-function BracketView({ rounds, bottomPadding }: { rounds: CupRound[]; bottomPadding: number }) {
+function BracketView({ mainRounds, thirdRounds, bottomPadding }: {
+  mainRounds: CupRound[];
+  thirdRounds: CupRound[];
+  bottomPadding: number;
+}) {
   const colors = useColors();
 
-  if (!rounds.length) return <EmptyState text="Плей-офф ещё не начался" />;
+  if (!mainRounds.length) return <EmptyState text="Плей-офф ещё не начался" />;
 
-  const r0Count = rounds[0]?.matches?.length ?? 1;
+  const r0Count = mainRounds[0]?.matches?.length ?? 1;
   const canvasH = totalH(r0Count);
 
   return (
     <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottomPadding + 24 }}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
         <View style={[cs.bracketRow, { height: canvasH }]}>
-          {rounds.map((r, ri) => {
+          {mainRounds.map((r, ri) => {
             const slot     = slotH(ri);
             const firstPad = (slot - CARD_H) / 2;
             const gap      = slot - CARD_H;
@@ -190,10 +196,10 @@ function BracketView({ rounds, bottomPadding }: { rounds: CupRound[]; bottomPadd
                     ))}
                   </View>
                 </View>
-                {ri < rounds.length - 1 && r.matches.length > 1 && (
+                {ri < mainRounds.length - 1 && r.matches.length > 1 && (
                   <ConnectorCol roundIdx={ri} leftCount={r.matches.length} lineColor={colors.border} canvasH={canvasH} />
                 )}
-                {ri < rounds.length - 1 && r.matches.length <= 1 && (
+                {ri < mainRounds.length - 1 && r.matches.length <= 1 && (
                   <View style={{ width: CONN_W }} />
                 )}
               </React.Fragment>
@@ -201,6 +207,15 @@ function BracketView({ rounds, bottomPadding }: { rounds: CupRound[]; bottomPadd
           })}
         </View>
       </ScrollView>
+      {/* 3rd place match – shown below the main bracket */}
+      {thirdRounds.map((r) =>
+        r.matches.map((m, mi) => (
+          <View key={`3rd-${mi}`} style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+            <Text style={[cs.roundLabel, { color: colors.mutedForeground, marginBottom: 6 }]}>{r.name}</Text>
+            <MatchCard match={m} />
+          </View>
+        ))
+      )}
     </ScrollView>
   );
 }
@@ -370,7 +385,7 @@ function RegionsView({ rounds, bottomPadding }: { rounds: CupRound[]; bottomPadd
       {sub === "early" && <ListView rounds={earlyRounds} bottomPadding={bottomPadding} />}
       {sub === "playoff" && (
         playoffRounds.length
-          ? <BracketView rounds={playoffRounds} bottomPadding={bottomPadding} />
+          ? <BracketView mainRounds={playoffRounds} thirdRounds={[]} bottomPadding={bottomPadding} />
           : <EmptyState text="Плей-офф ещё не начался" />
       )}
     </View>

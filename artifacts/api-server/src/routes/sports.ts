@@ -1791,9 +1791,10 @@ const RPL_ROUND_ORDER: Record<string, number> = {
   "1/8 финала":  2,
 };
 const PLAYOFF_ROUND_ORDER: Record<string, number> = {
-  "Четвертьфиналы": 0,
-  "Полуфиналы":     1,
-  "Финал":          2,
+  "Четвертьфиналы":     0,
+  "Полуфиналы":         1,
+  "Матч за 3-е место":  2,
+  "Финал":              3,
 };
 
 // Sort key within the regions path: extract trailing number or default high
@@ -1849,11 +1850,22 @@ function matchWinner(m: CupMatchMapped): string | null {
 // Post-process playoff rounds:
 // 1. Infer winner for tied two-legged matches from next-round participants
 // 2. Reorder rounds so bracket lines connect correctly (winner pairs → same SF slot)
+// 3. Fix Final home/away: bottom bracket (SF[1]) winner should be homeTeam
 function processPlayoffRounds(rounds: Array<{ name: string; matches: CupMatchMapped[] }>) {
-  // Pass 1: infer tied winners (which team from the tied match appears in the NEXT round at all)
-  for (let ri = 0; ri < rounds.length - 1; ri++) {
-    const nextTeams = new Set(rounds[ri + 1].matches.flatMap(nm => [nm.homeTeam, nm.awayTeam]));
-    for (const m of rounds[ri].matches) {
+  // Ignore 3rd-place when computing next-round context (it's a parallel track, not sequential)
+  const mainRounds = rounds.filter(r => r.name !== "Матч за 3-е место");
+
+  // Pass 1: infer tied winners (which team from the tied match appears in ANY subsequent round)
+  const allLaterTeams = (ri: number) => {
+    const teams = new Set<string>();
+    for (let j = ri + 1; j < mainRounds.length; j++) {
+      mainRounds[j].matches.forEach(nm => { teams.add(nm.homeTeam); teams.add(nm.awayTeam); });
+    }
+    return teams;
+  };
+  for (let ri = 0; ri < mainRounds.length - 1; ri++) {
+    const nextTeams = allLaterTeams(ri);
+    for (const m of mainRounds[ri].matches) {
       if (m.status !== "finished" || m.homeScore2 === null) continue;
       const hAgg = (m.homeScore ?? 0) + (m.homeScore2 ?? 0);
       const aAgg = (m.awayScore ?? 0) + (m.awayScore2 ?? 0);
@@ -1862,22 +1874,35 @@ function processPlayoffRounds(rounds: Array<{ name: string; matches: CupMatchMap
       else if (nextTeams.has(m.awayTeam)) m.winner = "away";
     }
   }
+
   // Pass 2: reorder each round so pairs feed the correct next-round slot
   // (e.g. QF 0+1 → SF 0, QF 2+3 → SF 1)
-  for (let ri = 0; ri < rounds.length - 1; ri++) {
-    const curr  = rounds[ri].matches;
-    const next  = rounds[ri + 1].matches;
+  for (let ri = 0; ri < mainRounds.length - 1; ri++) {
+    const curr  = mainRounds[ri].matches;
+    const next  = mainRounds[ri + 1].matches;
     if (curr.length !== next.length * 2) continue; // only standard bracket pairing
     const reordered: CupMatchMapped[] = [];
     for (const nm of next) {
       const sfTeams = [nm.homeTeam, nm.awayTeam];
-      // Find QF match whose winner is sfTeams[0] (nm.homeTeam)
       const qfHome = curr.find(qf => matchWinner(qf) === nm.homeTeam && sfTeams.includes(matchWinner(qf)!));
       const qfAway = curr.find(qf => matchWinner(qf) === nm.awayTeam && sfTeams.includes(matchWinner(qf)!));
       if (qfHome) reordered.push(qfHome);
       if (qfAway) reordered.push(qfAway);
     }
-    if (reordered.length === curr.length) rounds[ri].matches = reordered;
+    if (reordered.length === curr.length) mainRounds[ri].matches = reordered;
+  }
+
+  // Pass 3: fix Final home/away — SF[1]'s winner (bottom bracket) should be homeTeam
+  const sfRound    = mainRounds.find(r => r.name === "Полуфиналы");
+  const finalRound = mainRounds.find(r => r.name === "Финал");
+  if (sfRound && finalRound && sfRound.matches.length === 2 && finalRound.matches.length === 1) {
+    const sf1Winner = matchWinner(sfRound.matches[1]);
+    const fm = finalRound.matches[0];
+    if (sf1Winner && fm.awayTeam === sf1Winner) {
+      // Swap home/away so that SF[1] winner is on top (homeTeam position)
+      [fm.homeTeam,  fm.awayTeam]  = [fm.awayTeam,  fm.homeTeam];
+      [fm.homeBadge, fm.awayBadge] = [fm.awayBadge, fm.homeBadge];
+    }
   }
 }
 
@@ -1953,11 +1978,15 @@ function buildPath(
       // Merge two-legged ties
       if (opts?.mergeLegsFlag) {
         matches = mergeLegs(matches);
-        // Remove unmatched single-leg finished matches (they belong to other sub-competitions)
-        matches = matches.filter(m =>
-          m._homeLeg2 != null ||                  // merged two-legged
-          (m.strStatus as string) !== "finished"  // or not yet played
-        );
+        // Final and 3rd place are single-leg by design — keep even if finished
+        const isSingleLegRound = name === "Финал" || name === "Матч за 3-е место";
+        if (!isSingleLegRound) {
+          // Remove unmatched single-leg finished matches (they belong to other sub-competitions)
+          matches = matches.filter(m =>
+            m._homeLeg2 != null ||                  // merged two-legged
+            (m.strStatus as string) !== "finished"  // or not yet played
+          );
+        }
       }
       return {
         name,
@@ -1971,9 +2000,9 @@ let cupBracketCache: { data: unknown; fetchedAt: number } | null = null;
 const CUP_BRACKET_CACHE_TTL = 15 * 60 * 1000;
 
 router.get("/sports/cup-bracket", async (req, res) => {
-  const { league = "FONBET Кубок России" } = req.query as { league?: string };
+  const { league = "FONBET Кубок России", debug } = req.query as { league?: string; debug?: string };
   try {
-    if (cupBracketCache && Date.now() - cupBracketCache.fetchedAt < CUP_BRACKET_CACHE_TTL) {
+    if (!debug && cupBracketCache && Date.now() - cupBracketCache.fetchedAt < CUP_BRACKET_CACHE_TTL) {
       return res.json(cupBracketCache.data);
     }
 
@@ -1990,12 +2019,23 @@ router.get("/sports/cup-bracket", async (req, res) => {
       playoff: new Map(),
     };
 
+    const unclassified = new Map<string, number>();
     for (const e of events) {
       const roundName = (e._roundName as string) ?? "";
       const path = classifyRound(roundName);
-      if (!path) continue;
+      if (!path) { unclassified.set(roundName, (unclassified.get(roundName) ?? 0) + 1); continue; }
       if (!buckets[path].has(roundName)) buckets[path].set(roundName, []);
       buckets[path].get(roundName)!.push(e);
+    }
+
+    // Debug mode: return raw round buckets without post-processing
+    if (debug) {
+      return res.json({
+        playoff: [...buckets.playoff.entries()].map(([name, ms]) => ({ name, count: ms.length })),
+        rpl: [...buckets.rpl.entries()].map(([name, ms]) => ({ name, count: ms.length })),
+        regions: [...buckets.regions.entries()].map(([name, ms]) => ({ name, count: ms.length })),
+        unclassified: [...unclassified.entries()].map(([name, count]) => ({ name, count })),
+      });
     }
 
     const playoffResult = buildPath(buckets.playoff, PLAYOFF_ROUND_ORDER, undefined, { filterRpl: true, mergeLegsFlag: true });
