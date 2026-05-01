@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,9 @@ import {
   RefreshControl,
   Platform,
   Animated,
+  Modal,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
@@ -26,7 +29,7 @@ import { useLeague } from "@/context/LeagueContext";
 import { matchesLeagueFilter } from "@/utils/leagueUtils";
 import { scheduleMatchReminders, registerWithBackend, DEFAULT_NOTIF_PREFS, NotifPrefs } from "@/services/pushNotifications";
 
-function OtherLiveBadge({ count, colors }: { count: number; colors: ReturnType<typeof useColors> }) {
+function OtherLiveBadge({ count, onPress }: { count: number; onPress: () => void }) {
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -41,9 +44,11 @@ function OtherLiveBadge({ count, colors }: { count: number; colors: ReturnType<t
   }, [pulse]);
 
   return (
-    <Animated.View style={[styles.liveBadge, { backgroundColor: "#e03131", opacity: pulse }]}>
-      <Text style={styles.liveBadgeText}>● LIVE{count > 1 ? ` ${count}` : ""}</Text>
-    </Animated.View>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+      <Animated.View style={[styles.liveBadge, { backgroundColor: "#e03131", opacity: pulse }]}>
+        <Text style={styles.liveBadgeText}>● LIVE{count > 1 ? ` ${count}` : ""}</Text>
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
 
@@ -53,6 +58,7 @@ export default function HomeScreen() {
   const { selectedLeagues, setSelectedLeagues } = useLeague();
   const queryClient = useQueryClient();
   const { favorites } = useFavorites();
+  const [liveModalVisible, setLiveModalVisible] = useState(false);
 
   const { data: allMatches, isLoading, isError, refetch } = useAllMatches();
 
@@ -87,6 +93,9 @@ export default function HomeScreen() {
   // Only football matches, filtered by selected leagues (empty = all)
   const footballMatches = (allMatches || []).filter((m) => m.sport === "football");
   const matches = footballMatches.filter((m) => matchesLeagueFilter(m.league, selectedLeagues));
+
+  // All live football matches across all leagues
+  const allLiveMatches = footballMatches.filter((m) => m.status === "live");
 
   // Live matches in leagues the user is NOT currently viewing
   const otherLiveMatches = selectedLeagues.length > 0
@@ -123,7 +132,7 @@ export default function HomeScreen() {
         <View style={styles.dropdownRow}>
           <LeagueDropdown selected={selectedLeagues} onSelect={setSelectedLeagues} />
           {otherLiveMatches.length > 0 && (
-            <OtherLiveBadge count={otherLiveMatches.length} colors={colors} />
+            <OtherLiveBadge count={otherLiveMatches.length} onPress={() => setLiveModalVisible(true)} />
           )}
         </View>
       </View>
@@ -169,6 +178,31 @@ export default function HomeScreen() {
           )}
         </ScrollView>
       )}
+
+      <Modal
+        visible={liveModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setLiveModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setLiveModalVisible(false)}>
+          <View style={styles.modalOverlay} />
+        </TouchableWithoutFeedback>
+        <View style={[styles.modalSheet, { backgroundColor: colors.background, paddingBottom: insets.bottom + 16 }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={styles.modalTitle}>● Live-матчи</Text>
+            <TouchableOpacity onPress={() => setLiveModalVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={[styles.modalClose, { color: colors.mutedForeground }]}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {allLiveMatches.length > 0
+              ? allLiveMatches.map((match) => <MatchCard key={match.id} match={match} />)
+              : <Text style={[styles.modalEmpty, { color: colors.mutedForeground }]}>Нет идущих матчей</Text>
+            }
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -208,4 +242,36 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   scroll: { flex: 1 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  modalSheet: {
+    maxHeight: "80%",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    color: "#e03131",
+  },
+  modalClose: {
+    fontSize: 18,
+    fontFamily: "Inter_400Regular",
+  },
+  modalEmpty: {
+    textAlign: "center",
+    paddingVertical: 32,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+  },
 });
