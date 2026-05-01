@@ -77,10 +77,19 @@ function TeamBadge({ uri, teamName, size = 28 }: { uri: string; teamName: string
   );
 }
 
-function StandingsTable({ entries, colors, showWDL = false }: {
+type ZoneRule = { from: number; to: number; color: string; label: string };
+
+function zoneColor(rank: number, zones?: ZoneRule[]): string | null {
+  if (!zones) return null;
+  const z = zones.find((z) => rank >= z.from && rank <= z.to);
+  return z ? z.color : null;
+}
+
+function StandingsTable({ entries, colors, showWDL = false, zones }: {
   entries: StandingEntry[];
   colors: ReturnType<typeof useColors>;
   showWDL?: boolean;
+  zones?: ZoneRule[];
 }) {
   const cols = showWDL ? ["И", "В", "Н", "П", "О"] : ["М", "ЗГ", "ПГ", "РМ", "О"];
   return (
@@ -94,6 +103,7 @@ function StandingsTable({ entries, colors, showWDL = false }: {
       </View>
       {entries.map((e, idx) => {
         const isEven = idx % 2 === 0;
+        const stripe = zoneColor(e.rank, zones);
         return (
           <View
             key={e.team + idx}
@@ -102,10 +112,12 @@ function StandingsTable({ entries, colors, showWDL = false }: {
               {
                 backgroundColor: isEven ? "transparent" : colors.muted + "50",
                 borderBottomColor: colors.border,
+                borderLeftWidth: 4,
+                borderLeftColor: stripe ?? "transparent",
               },
             ]}
           >
-            <Text style={[styles.rankText, { color: e.rank <= 3 ? colors.primary : colors.foreground }]}>
+            <Text style={[styles.rankText, { color: colors.foreground }]}>
               {e.rank}
             </Text>
             <View style={styles.teamCell}>
@@ -136,6 +148,16 @@ function StandingsTable({ entries, colors, showWDL = false }: {
           </View>
         );
       })}
+      {zones && (
+        <View style={[styles.zoneLegend, { borderTopColor: colors.border }]}>
+          {zones.map((z) => (
+            <View key={z.label} style={styles.zoneLegendRow}>
+              <View style={[styles.zoneLegendDot, { backgroundColor: z.color }]} />
+              <Text style={[styles.zoneLegendText, { color: colors.mutedForeground }]}>{z.label}</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -288,7 +310,14 @@ export default function StandingsScreen() {
                   <Text style={[styles.leagueLabelText, { color: colors.foreground }]}>{data.league}</Text>
                 </View>
               )}
-              <StandingsTable entries={data?.entries ?? []} colors={colors} />
+              <StandingsTable
+                entries={data?.entries ?? []}
+                colors={colors}
+                zones={[
+                  { from: 13, to: 14, color: "#F5C518", label: "Плей-офф понижения" },
+                  { from: 15, to: 16, color: "#8B1A1A", label: "Понижение" },
+                ]}
+              />
             </View>
           </ScrollView>
 
@@ -441,6 +470,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     textAlign: "center",
+  },
+  zoneLegend: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  zoneLegendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  zoneLegendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+  },
+  zoneLegendText: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
   },
   badgeFallback: {
     alignItems: "center",
