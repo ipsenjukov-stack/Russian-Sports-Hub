@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View, Text, ScrollView, StyleSheet, Image,
-  TouchableOpacity, Pressable,
+  Pressable,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { CupRound, CupMatch, CupBracketData } from "@/hooks/useSportsData";
+import { CUP_RPL_GROUPS, CUP_RPL_ZONES, type GroupEntry } from "@/data/cupRplStandings";
 
 // ── bracket geometry ──────────────────────────────────────────────────────────
 const CARD_W  = 152;
@@ -204,6 +205,94 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
+// ── group standings table (Путь РПЛ) ─────────────────────────────────────────
+function zoneColor(rank: number): string | null {
+  const z = CUP_RPL_ZONES.find(r => rank >= r.from && rank <= r.to);
+  return z?.color ?? null;
+}
+
+function GroupTable({ entries, badgeMap }: { entries: GroupEntry[]; badgeMap: Record<string, string> }) {
+  const colors = useColors();
+  const COLS = ["М", "ЗГ", "ПГ", "РМ", "О"] as const;
+  return (
+    <View style={cs.groupTable}>
+      {/* Header */}
+      <View style={[cs.groupHeader, { borderBottomColor: colors.border }]}>
+        <Text style={[cs.ghRank, { color: colors.mutedForeground }]}>#</Text>
+        <Text style={[cs.ghTeam, { color: colors.mutedForeground }]}>Команда</Text>
+        {COLS.map((c) => (
+          <Text key={c} style={[cs.ghStat, { color: c === "О" ? colors.primary : colors.mutedForeground }]}>{c}</Text>
+        ))}
+      </View>
+      {/* Rows */}
+      {entries.map((e, idx) => {
+        const stripe = zoneColor(e.rank);
+        const badgeUri = badgeMap[e.team] ?? e.badge ?? "";
+        return (
+          <View key={e.team} style={[
+            cs.groupRow,
+            { backgroundColor: idx % 2 === 0 ? "transparent" : colors.muted + "50",
+              borderBottomColor: colors.border,
+              borderLeftWidth: 4,
+              borderLeftColor: stripe ?? "transparent",
+            },
+          ]}>
+            <Text style={[cs.grRank, { color: colors.foreground }]}>{e.rank}</Text>
+            <View style={cs.grTeam}>
+              <SmallBadge uri={badgeUri} name={e.team} size={20} />
+              <Text style={[cs.grTeamName, { color: colors.foreground }]} numberOfLines={1}>{e.team}</Text>
+            </View>
+            <Text style={[cs.grStat, { color: colors.foreground }]}>{e.gp}</Text>
+            <Text style={[cs.grStat, { color: colors.foreground }]}>{e.gf}</Text>
+            <Text style={[cs.grStat, { color: colors.foreground }]}>{e.ga}</Text>
+            <Text style={[cs.grStat, { color: e.gd > 0 ? "#22c55e" : e.gd < 0 ? "#e53e3e" : colors.foreground }]}>
+              {e.gd > 0 ? `+${e.gd}` : e.gd}
+            </Text>
+            <Text style={[cs.grStat, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>{e.pts}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function GroupStandingsView({ data, bottomPadding }: { data: CupBracketData; bottomPadding: number }) {
+  const badgeMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const path of [data.rpl, data.regions, data.playoff]) {
+      for (const round of path?.rounds ?? []) {
+        for (const m of round.matches) {
+          if (m.homeTeam && m.homeBadge) map[m.homeTeam] = m.homeBadge;
+          if (m.awayTeam && m.awayBadge) map[m.awayTeam] = m.awayBadge;
+        }
+      }
+    }
+    return map;
+  }, [data]);
+
+  const colors = useColors();
+  return (
+    <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: bottomPadding + 24 }}>
+      {CUP_RPL_GROUPS.map((group) => (
+        <View key={group.name} style={{ marginBottom: 20 }}>
+          <Text style={[cs.roundHeader, { color: colors.mutedForeground, marginBottom: 6 }]}>{group.name}</Text>
+          <GroupTable entries={group.entries} badgeMap={badgeMap} />
+        </View>
+      ))}
+      {/* Zone legend */}
+      <View style={[cs.zoneLegend, { borderTopColor: colors.border }]}>
+        {CUP_RPL_ZONES.map((z) => (
+          <View key={z.label} style={cs.zoneLegendRow}>
+            <View style={[cs.zoneDot, { backgroundColor: z.color }]} />
+            <Text style={[cs.zoneLegendText, { color: colors.mutedForeground }]}>{z.label}</Text>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
 // ── tab bar ───────────────────────────────────────────────────────────────────
 type TabKey = "rpl" | "regions" | "playoff";
 const TABS: { key: TabKey; label: string }[] = [
@@ -243,9 +332,9 @@ export function CupBracket({ data, bottomPadding = 0 }: CupBracketProps) {
       </View>
 
       {/* Content */}
-      {tab === "playoff" && <PlayoffView  rounds={data.playoff?.rounds ?? []} bottomPadding={bottomPadding} />}
-      {tab === "rpl"     && <ListView     rounds={data.rpl?.rounds     ?? []} bottomPadding={bottomPadding} />}
-      {tab === "regions" && <ListView     rounds={data.regions?.rounds  ?? []} bottomPadding={bottomPadding} />}
+      {tab === "playoff" && <PlayoffView        rounds={data.playoff?.rounds ?? []} bottomPadding={bottomPadding} />}
+      {tab === "rpl"     && <GroupStandingsView data={data} bottomPadding={bottomPadding} />}
+      {tab === "regions" && <ListView           rounds={data.regions?.rounds ?? []} bottomPadding={bottomPadding} />}
     </View>
   );
 }
@@ -284,4 +373,21 @@ const cs = StyleSheet.create({
 
   empty: { alignItems: "center", justifyContent: "center", paddingTop: 80, paddingHorizontal: 40 },
   emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
+
+  groupTable: { borderRadius: 10, overflow: "hidden" },
+  groupHeader: { flexDirection: "row", alignItems: "center", paddingVertical: 6, paddingHorizontal: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  ghRank: { width: 20, fontSize: 11, fontFamily: "Inter_600SemiBold", textAlign: "center" },
+  ghTeam: { flex: 1, fontSize: 11, fontFamily: "Inter_600SemiBold", paddingLeft: 6 },
+  ghStat: { width: 30, fontSize: 11, fontFamily: "Inter_600SemiBold", textAlign: "center" },
+
+  groupRow: { flexDirection: "row", alignItems: "center", paddingVertical: 7, paddingHorizontal: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  grRank: { width: 20, fontSize: 12, fontFamily: "Inter_500Medium", textAlign: "center" },
+  grTeam: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6, paddingLeft: 6 },
+  grTeamName: { flex: 1, fontSize: 12, fontFamily: "Inter_500Medium" },
+  grStat: { width: 30, fontSize: 12, fontFamily: "Inter_500Medium", textAlign: "center" },
+
+  zoneLegend: { marginTop: 4, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, gap: 4 },
+  zoneLegendRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  zoneDot: { width: 8, height: 8, borderRadius: 4 },
+  zoneLegendText: { fontSize: 11, fontFamily: "Inter_400Regular" },
 });
