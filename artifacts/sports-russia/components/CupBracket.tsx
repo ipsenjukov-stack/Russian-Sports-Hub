@@ -301,6 +301,48 @@ function GroupStandingsView({ data, bottomPadding }: { data: CupBracketData; bot
   );
 }
 
+// ── regions view — list for rounds 1‑3, bracket for rounds 4+ ────────────────
+type RegionsTab = "early" | "playoff";
+const REGIONS_TABS: { key: RegionsTab; label: string }[] = [
+  { key: "early",   label: "Туры 1–3"   },
+  { key: "playoff", label: "Плей-офф"   },
+];
+
+function RegionsView({ rounds, bottomPadding }: { rounds: CupRound[]; bottomPadding: number }) {
+  const colors   = useColors();
+  const [sub, setSub] = useState<RegionsTab>("playoff");
+
+  const earlyRounds   = rounds.filter((_, i) => i < 3);
+  const playoffRounds = rounds.filter((_, i) => i >= 3);
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* sub-tab bar */}
+      <View style={[cs.subTabBar, { borderBottomColor: colors.border }]}>
+        {REGIONS_TABS.map(({ key, label }) => {
+          const active = sub === key;
+          return (
+            <Pressable key={key} onPress={() => setSub(key)} style={cs.tabBtn}>
+              <Text style={[cs.subTabText, {
+                color:      active ? colors.primary : colors.mutedForeground,
+                fontFamily: active ? "Inter_700Bold" : "Inter_500Medium",
+              }]}>{label}</Text>
+              {active && <View style={[cs.tabIndicator, { backgroundColor: colors.primary }]} />}
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {sub === "early" && <ListView rounds={earlyRounds} bottomPadding={bottomPadding} />}
+      {sub === "playoff" && (
+        playoffRounds.length
+          ? <BracketView rounds={playoffRounds} bottomPadding={bottomPadding} />
+          : <EmptyState text="Плей-офф ещё не начался" />
+      )}
+    </View>
+  );
+}
+
 // ── tab bar ───────────────────────────────────────────────────────────────────
 type TabKey = "rpl" | "regions" | "playoff";
 const TABS: { key: TabKey; label: string }[] = [
@@ -342,7 +384,7 @@ export function CupBracket({ data, bottomPadding = 0 }: CupBracketProps) {
       {/* Content */}
       {tab === "playoff" && <PlayoffView        rounds={data.playoff?.rounds ?? []} bottomPadding={bottomPadding} />}
       {tab === "rpl"     && <GroupStandingsView data={data} bottomPadding={bottomPadding} />}
-      {tab === "regions" && <ListView           rounds={data.regions?.rounds ?? []} bottomPadding={bottomPadding} />}
+      {tab === "regions" && <RegionsView         rounds={data.regions?.rounds ?? []} bottomPadding={bottomPadding} />}
     </View>
   );
 }
@@ -364,6 +406,15 @@ const cs = StyleSheet.create({
   },
   tabText: { fontSize: 12.5 },
   tabIndicator: { position: "absolute", bottom: 0, left: 4, right: 4, height: 2, borderRadius: 1 },
+
+  subTabBar: {
+    flexDirection: "row",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginHorizontal: 16,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  subTabText: { fontSize: 11.5 },
 
   bracketRow: { flexDirection: "row", alignItems: "flex-start" },
   roundLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", letterSpacing: 0.4, textAlign: "center", textTransform: "uppercase" },
