@@ -179,7 +179,6 @@ function LigaAStandingsView({ colors, bottomPadding }: {
 
   const goldEntries   = phase === 2 ? phase2Gold   : withBadges(LIGA_A_PHASE1_GOLD,   badgeMap);
   const silverEntries = phase === 2 ? phase2Silver : withBadges(LIGA_A_PHASE1_SILVER, badgeMap);
-  const seasonLabel   = phase === 1 ? "Осень 2024" : "Весна 2026";
 
   return (
     <>
@@ -214,13 +213,11 @@ function LigaAStandingsView({ colors, bottomPadding }: {
             <View style={styles.tableWrapper}>
               <View style={[styles.groupLabel, { borderBottomColor: colors.border }]}>
                 <Text style={[styles.groupLabelText, { color: colors.foreground }]}>🥇 Группа Золото</Text>
-                <Text style={[styles.groupSeason, { color: colors.mutedForeground }]}>{seasonLabel}</Text>
               </View>
               <StandingsTable entries={goldEntries} colors={colors} />
 
               <View style={[styles.groupLabel, { borderBottomColor: colors.border, marginTop: 16 }]}>
                 <Text style={[styles.groupLabelText, { color: colors.foreground }]}>🥈 Группа Серебро</Text>
-                <Text style={[styles.groupSeason, { color: colors.mutedForeground }]}>{seasonLabel}</Text>
               </View>
               <StandingsTable entries={silverEntries} colors={colors} />
             </View>
