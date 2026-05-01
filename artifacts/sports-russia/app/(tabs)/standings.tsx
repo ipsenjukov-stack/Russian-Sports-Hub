@@ -116,18 +116,18 @@ function StandingsTable({ entries, colors, showWDL = false }: {
             </View>
             {showWDL ? (
               <>
-                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gp}</Text>
-                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.w}</Text>
-                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.d}</Text>
-                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.l}</Text>
+                <Text style={[styles.statCell, { color: colors.foreground }]}>{e.gp}</Text>
+                <Text style={[styles.statCell, { color: colors.foreground }]}>{e.w}</Text>
+                <Text style={[styles.statCell, { color: colors.foreground }]}>{e.d}</Text>
+                <Text style={[styles.statCell, { color: colors.foreground }]}>{e.l}</Text>
                 <Text style={[styles.statCell, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>{e.pts}</Text>
               </>
             ) : (
               <>
-                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gp}</Text>
-                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.gf}</Text>
-                <Text style={[styles.statCell, { color: colors.mutedForeground }]}>{e.ga}</Text>
-                <Text style={[styles.statCell, { color: e.gd > 0 ? colors.live : e.gd < 0 ? "#e53e3e" : colors.mutedForeground }]}>
+                <Text style={[styles.statCell, { color: colors.foreground }]}>{e.gp}</Text>
+                <Text style={[styles.statCell, { color: colors.foreground }]}>{e.gf}</Text>
+                <Text style={[styles.statCell, { color: colors.foreground }]}>{e.ga}</Text>
+                <Text style={[styles.statCell, { color: e.gd > 0 ? colors.live : e.gd < 0 ? "#e53e3e" : colors.foreground }]}>
                   {e.gd > 0 ? `+${e.gd}` : e.gd}
                 </Text>
                 <Text style={[styles.statCell, { color: colors.foreground, fontFamily: "Inter_700Bold" }]}>{e.pts}</Text>
