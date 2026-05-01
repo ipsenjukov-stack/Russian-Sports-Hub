@@ -314,7 +314,7 @@ export default function StandingsScreen() {
                 entries={data?.entries ?? []}
                 colors={colors}
                 zones={[
-                  { from: 13, to: 14, color: "#F5C518", label: "Плей-офф понижения" },
+                  { from: 13, to: 14, color: "#F5C518", label: "Плей-офф" },
                   { from: 15, to: 16, color: "#8B1A1A", label: "Понижение" },
                 ]}
               />
