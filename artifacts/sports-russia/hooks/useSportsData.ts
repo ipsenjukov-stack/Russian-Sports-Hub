@@ -1,4 +1,5 @@
 import { useQuery, useQueries } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { fetchAllMatches, fetchSeasonMatches } from "@/services/sportsdb";
 import { Match, SportType } from "@/types/sports";
 import { Platform } from "react-native";
@@ -153,4 +154,63 @@ export function useUpcomingMatches(sport?: SportType) {
       (m) => m.status === "upcoming" && (!sport || m.sport === sport)
     ),
   };
+}
+
+export function useLigaAPhase2Standings() {
+  const { data: matches, isLoading, isError } = useSeasonMatches();
+
+  const { gold, silver } = useMemo(() => {
+    function computeGroup(leagueName: string): StandingEntry[] {
+      if (!matches) return [];
+
+      const groupMatches = matches.filter(
+        (m) =>
+          m.league === leagueName &&
+          m.status === "finished" &&
+          m.homeScore !== null &&
+          m.awayScore !== null
+      );
+
+      const table: Record<
+        string,
+        { M: number; W: number; D: number; L: number; GF: number; GA: number; Pts: number; badge: string }
+      > = {};
+
+      for (const m of groupMatches) {
+        const h = m.homeTeam.name;
+        const a = m.awayTeam.name;
+        const hs = m.homeScore as number;
+        const as_ = m.awayScore as number;
+
+        if (!table[h]) table[h] = { M: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, Pts: 0, badge: m.homeTeam.logo };
+        if (!table[a]) table[a] = { M: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, Pts: 0, badge: m.awayTeam.logo };
+
+        table[h].M++; table[h].GF += hs; table[h].GA += as_;
+        table[a].M++; table[a].GF += as_; table[a].GA += hs;
+
+        if (hs > as_) { table[h].W++; table[h].Pts += 3; table[a].L++; }
+        else if (hs < as_) { table[a].W++; table[a].Pts += 3; table[h].L++; }
+        else { table[h].D++; table[h].Pts++; table[a].D++; table[a].Pts++; }
+      }
+
+      return Object.entries(table)
+        .map(([name, s]) => ({
+          rank: 0,
+          team: name,
+          badge: s.badge,
+          gp: s.M, w: s.W, d: s.D, l: s.L,
+          gf: s.GF, ga: s.GA, gd: s.GF - s.GA,
+          pts: s.Pts,
+        }))
+        .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+        .map((e, i) => ({ ...e, rank: i + 1 }));
+    }
+
+    return {
+      gold:   computeGroup("Вторая Лига А. Группа Золото"),
+      silver: computeGroup("Вторая Лига А. Группа Серебро"),
+    };
+  }, [matches]);
+
+  return { gold, silver, isLoading, isError };
 }

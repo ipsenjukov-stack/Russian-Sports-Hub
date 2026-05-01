@@ -8,11 +8,12 @@ import {
   Platform,
   RefreshControl,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
-import { useStandings, StandingEntry, useSeasonMatches } from "@/hooks/useSportsData";
+import { useStandings, StandingEntry, useSeasonMatches, useLigaAPhase2Standings } from "@/hooks/useSportsData";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
@@ -22,8 +23,6 @@ import { LIGA_A_KEY } from "@/utils/leagueUtils";
 import {
   LIGA_A_PHASE1_GOLD,
   LIGA_A_PHASE1_SILVER,
-  LIGA_A_PHASE2_GOLD,
-  LIGA_A_PHASE2_SILVER,
 } from "@/data/ligaAStandings";
 
 const LOCAL_TEAM_LOGOS: Record<string, ReturnType<typeof require>> = {
@@ -176,9 +175,10 @@ function LigaAStandingsView({ colors, bottomPadding }: {
 }) {
   const [phase, setPhase] = useState<1 | 2>(2);
   const badgeMap = useBadgeMap();
+  const { gold: phase2Gold, silver: phase2Silver, isLoading: phase2Loading } = useLigaAPhase2Standings();
 
-  const goldEntries   = withBadges(phase === 1 ? LIGA_A_PHASE1_GOLD   : LIGA_A_PHASE2_GOLD,   badgeMap);
-  const silverEntries = withBadges(phase === 1 ? LIGA_A_PHASE1_SILVER : LIGA_A_PHASE2_SILVER, badgeMap);
+  const goldEntries   = phase === 2 ? phase2Gold   : withBadges(LIGA_A_PHASE1_GOLD,   badgeMap);
+  const silverEntries = phase === 2 ? phase2Silver : withBadges(LIGA_A_PHASE1_SILVER, badgeMap);
   const seasonLabel   = phase === 1 ? "Осень 2024" : "Весна 2026";
 
   return (
@@ -200,32 +200,38 @@ function LigaAStandingsView({ colors, bottomPadding }: {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={{ paddingBottom: bottomPadding }}
-        showsVerticalScrollIndicator={false}
-      >
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.tableWrapper}>
-            <View style={[styles.groupLabel, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.groupLabelText, { color: colors.foreground }]}>🥇 Группа Золото</Text>
-              <Text style={[styles.groupSeason, { color: colors.mutedForeground }]}>{seasonLabel}</Text>
-            </View>
-            <StandingsTable entries={goldEntries} colors={colors} />
+      {phase === 2 && phase2Loading ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={{ paddingBottom: bottomPadding }}
+          showsVerticalScrollIndicator={false}
+        >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.tableWrapper}>
+              <View style={[styles.groupLabel, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.groupLabelText, { color: colors.foreground }]}>🥇 Группа Золото</Text>
+                <Text style={[styles.groupSeason, { color: colors.mutedForeground }]}>{seasonLabel}</Text>
+              </View>
+              <StandingsTable entries={goldEntries} colors={colors} />
 
-            <View style={[styles.groupLabel, { borderBottomColor: colors.border, marginTop: 16 }]}>
-              <Text style={[styles.groupLabelText, { color: colors.foreground }]}>🥈 Группа Серебро</Text>
-              <Text style={[styles.groupSeason, { color: colors.mutedForeground }]}>{seasonLabel}</Text>
+              <View style={[styles.groupLabel, { borderBottomColor: colors.border, marginTop: 16 }]}>
+                <Text style={[styles.groupLabelText, { color: colors.foreground }]}>🥈 Группа Серебро</Text>
+                <Text style={[styles.groupSeason, { color: colors.mutedForeground }]}>{seasonLabel}</Text>
+              </View>
+              <StandingsTable entries={silverEntries} colors={colors} />
             </View>
-            <StandingsTable entries={silverEntries} colors={colors} />
+          </ScrollView>
+          <View style={[styles.legend, { borderTopColor: colors.border }]}>
+            <Text style={[styles.legendText, { color: colors.mutedForeground }]}>
+              М — матчи · ЗГ — забито · ПГ — пропущено · РМ — разница · О — очки
+            </Text>
           </View>
         </ScrollView>
-        <View style={[styles.legend, { borderTopColor: colors.border }]}>
-          <Text style={[styles.legendText, { color: colors.mutedForeground }]}>
-            М — матчи · ЗГ — забито · ПГ — пропущено · РМ — разница · О — очки
-          </Text>
-        </View>
-      </ScrollView>
+      )}
     </>
   );
 }
