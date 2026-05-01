@@ -1825,10 +1825,60 @@ function mapCupMatch(m: Record<string, unknown>) {
     awayScore:  played && m.intAwayScore  != null ? Number(m.intAwayScore)  : null,
     homeScore2: m._homeLeg2 != null ? Number(m._homeLeg2) : null,
     awayScore2: m._awayLeg2 != null ? Number(m._awayLeg2) : null,
+    winner:     null as "home" | "away" | null,
     status:     m.strStatus    as string,
     date:       m.dateEvent    as string,
     time:       m.strTime      as string,
   };
+}
+
+type CupMatchMapped = ReturnType<typeof mapCupMatch>;
+
+// Get the winner team name of a mapped match (by aggregate or by assigned winner field)
+function matchWinner(m: CupMatchMapped): string | null {
+  if (m.winner === "home") return m.homeTeam;
+  if (m.winner === "away") return m.awayTeam;
+  if (m.status !== "finished" || m.homeScore === null) return null;
+  const hAgg = (m.homeScore ?? 0) + (m.homeScore2 ?? 0);
+  const aAgg = (m.awayScore ?? 0) + (m.awayScore2 ?? 0);
+  if (hAgg > aAgg) return m.homeTeam;
+  if (aAgg > hAgg) return m.awayTeam;
+  return null;
+}
+
+// Post-process playoff rounds:
+// 1. Infer winner for tied two-legged matches from next-round participants
+// 2. Reorder rounds so bracket lines connect correctly (winner pairs → same SF slot)
+function processPlayoffRounds(rounds: Array<{ name: string; matches: CupMatchMapped[] }>) {
+  // Pass 1: infer tied winners (which team from the tied match appears in the NEXT round at all)
+  for (let ri = 0; ri < rounds.length - 1; ri++) {
+    const nextTeams = new Set(rounds[ri + 1].matches.flatMap(nm => [nm.homeTeam, nm.awayTeam]));
+    for (const m of rounds[ri].matches) {
+      if (m.status !== "finished" || m.homeScore2 === null) continue;
+      const hAgg = (m.homeScore ?? 0) + (m.homeScore2 ?? 0);
+      const aAgg = (m.awayScore ?? 0) + (m.awayScore2 ?? 0);
+      if (hAgg !== aAgg) continue;
+      if (nextTeams.has(m.homeTeam)) m.winner = "home";
+      else if (nextTeams.has(m.awayTeam)) m.winner = "away";
+    }
+  }
+  // Pass 2: reorder each round so pairs feed the correct next-round slot
+  // (e.g. QF 0+1 → SF 0, QF 2+3 → SF 1)
+  for (let ri = 0; ri < rounds.length - 1; ri++) {
+    const curr  = rounds[ri].matches;
+    const next  = rounds[ri + 1].matches;
+    if (curr.length !== next.length * 2) continue; // only standard bracket pairing
+    const reordered: CupMatchMapped[] = [];
+    for (const nm of next) {
+      const sfTeams = [nm.homeTeam, nm.awayTeam];
+      // Find QF match whose winner is sfTeams[0] (nm.homeTeam)
+      const qfHome = curr.find(qf => matchWinner(qf) === nm.homeTeam && sfTeams.includes(matchWinner(qf)!));
+      const qfAway = curr.find(qf => matchWinner(qf) === nm.awayTeam && sfTeams.includes(matchWinner(qf)!));
+      if (qfHome) reordered.push(qfHome);
+      if (qfAway) reordered.push(qfAway);
+    }
+    if (reordered.length === curr.length) rounds[ri].matches = reordered;
+  }
 }
 
 // Compute winning team IDs from a set of merged two-legged matches (only counts truly merged ties)
@@ -1968,6 +2018,9 @@ router.get("/sports/cup-bracket", async (req, res) => {
           .map(mapCupMatch);
       }
     }
+
+    // Infer tied-match winners from next-round participants and reorder for correct bracket alignment
+    processPlayoffRounds(playoffResult.rounds);
 
     const result = {
       league,

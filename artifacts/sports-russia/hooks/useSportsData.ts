@@ -91,6 +91,7 @@ export interface CupMatch {
   homeBadge: string; awayBadge: string;
   homeScore2?: number | null; awayScore2?: number | null;
   homeScore: number | null; awayScore: number | null;
+  winner?: "home" | "away" | null;
   status: string; date: string; time: string;
 }
 export interface CupRound { name: string; matches: CupMatch[] }

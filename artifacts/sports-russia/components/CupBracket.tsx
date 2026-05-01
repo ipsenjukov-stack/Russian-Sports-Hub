@@ -9,7 +9,7 @@ import { CUP_RPL_GROUPS, CUP_RPL_ZONES, type GroupEntry } from "@/data/cupRplSta
 
 // ── bracket geometry ──────────────────────────────────────────────────────────
 const CARD_W  = 172;
-const CARD_H  = 66;
+const CARD_H  = 72;
 const ARM_W   = 18;
 const LINE_PX = 1.5;
 const BASE_SLOT = 80;
@@ -52,11 +52,20 @@ function MatchCard({ match, compact = false }: { match: CupMatch; compact?: bool
   const hasScore = match.homeScore !== null && match.awayScore !== null;
   const twoLegs  = match.homeScore2 != null && match.awayScore2 != null;
 
-  // Aggregate score winner (two-legged) or single-match winner
+  // Aggregate score
   const homeAgg = twoLegs ? (match.homeScore ?? 0) + match.homeScore2! : (match.homeScore ?? 0);
   const awayAgg = twoLegs ? (match.awayScore ?? 0) + match.awayScore2! : (match.awayScore ?? 0);
-  const homeWon = finished && hasScore && homeAgg > awayAgg;
-  const awayWon = finished && hasScore && awayAgg > homeAgg;
+  const aggTied = finished && hasScore && homeAgg === awayAgg;
+
+  // Winner: use explicit `winner` field (set by API for penalty shootouts),
+  // otherwise fall back to aggregate comparison
+  const homeWon = finished && hasScore && (
+    aggTied ? match.winner === "home" : homeAgg > awayAgg
+  );
+  const awayWon = finished && hasScore && (
+    aggTied ? match.winner === "away" : awayAgg > homeAgg
+  );
+  const decidedByPen = aggTied && (match.winner === "home" || match.winner === "away");
 
   const dim = (won: boolean) => finished && !won && hasScore ? 0.55 : 1;
 
@@ -104,6 +113,12 @@ function MatchCard({ match, compact = false }: { match: CupMatch; compact?: bool
           ? <Text style={[cs.score, { color: awayWon ? colors.primary : colors.foreground, fontFamily: awayWon ? "Inter_700Bold" : "Inter_500Medium" }]}>{match.awayScore}</Text>
           : <Text style={[cs.scoreDash, { color: colors.mutedForeground }]}>{formatDate(match.date, match.time)}</Text>}
       </View>
+      {/* Penalty badge */}
+      {decidedByPen && (
+        <View style={[cs.penPill, { borderColor: colors.border }]}>
+          <Text style={[cs.penPillText, { color: colors.mutedForeground }]}>пен.</Text>
+        </View>
+      )}
       {live && (
         <View style={[cs.livePill, { backgroundColor: colors.primary }]}>
           <Text style={cs.livePillText}>LIVE</Text>
@@ -450,6 +465,8 @@ const cs = StyleSheet.create({
   badge: { alignItems: "center", justifyContent: "center", flexShrink: 0 },
   livePill: { position: "absolute", top: 2, right: 4, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 },
   livePillText: { fontSize: 8, fontFamily: "Inter_700Bold", color: "#fff" },
+  penPill: { position: "absolute", bottom: 3, right: 4, paddingHorizontal: 3, paddingVertical: 1, borderRadius: 3, borderWidth: StyleSheet.hairlineWidth },
+  penPillText: { fontSize: 8, fontFamily: "Inter_500Medium" },
 
   empty: { alignItems: "center", justifyContent: "center", paddingTop: 80, paddingHorizontal: 40 },
   emptyText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
