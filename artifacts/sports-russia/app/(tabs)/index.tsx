@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   RefreshControl,
   Platform,
+  Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
@@ -24,6 +25,27 @@ import { useFavorites } from "@/context/FavoritesContext";
 import { useLeague } from "@/context/LeagueContext";
 import { matchesLeagueFilter } from "@/utils/leagueUtils";
 import { scheduleMatchReminders, registerWithBackend, DEFAULT_NOTIF_PREFS, NotifPrefs } from "@/services/pushNotifications";
+
+function OtherLiveBadge({ count, colors }: { count: number; colors: ReturnType<typeof useColors> }) {
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.3, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1,   duration: 700, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [pulse]);
+
+  return (
+    <Animated.View style={[styles.liveBadge, { backgroundColor: "#e03131", opacity: pulse }]}>
+      <Text style={styles.liveBadgeText}>● LIVE{count > 1 ? ` ${count}` : ""}</Text>
+    </Animated.View>
+  );
+}
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -66,6 +88,13 @@ export default function HomeScreen() {
   const footballMatches = (allMatches || []).filter((m) => m.sport === "football");
   const matches = footballMatches.filter((m) => matchesLeagueFilter(m.league, selectedLeagues));
 
+  // Live matches in leagues the user is NOT currently viewing
+  const otherLiveMatches = selectedLeagues.length > 0
+    ? footballMatches.filter(
+        (m) => m.status === "live" && !matchesLeagueFilter(m.league, selectedLeagues)
+      )
+    : [];
+
   const liveMatches = matches.filter((m) => m.status === "live");
 
   const startingSoonMatches = matches.filter((m) => {
@@ -91,7 +120,12 @@ export default function HomeScreen() {
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>Матчи</Text>
           <GearButton />
         </View>
-        <LeagueDropdown selected={selectedLeagues} onSelect={setSelectedLeagues} />
+        <View style={styles.dropdownRow}>
+          <LeagueDropdown selected={selectedLeagues} onSelect={setSelectedLeagues} />
+          {otherLiveMatches.length > 0 && (
+            <OtherLiveBadge count={otherLiveMatches.length} colors={colors} />
+          )}
+        </View>
       </View>
 
       {isLoading ? (
@@ -155,6 +189,23 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 26,
     fontFamily: "Inter_700Bold",
+  },
+  dropdownRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingRight: 16,
+  },
+  liveBadge: {
+    marginLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  liveBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5,
   },
   scroll: { flex: 1 },
 });
