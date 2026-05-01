@@ -182,18 +182,18 @@ function LigaAStandingsView({ colors, bottomPadding }: {
               <Text style={[styles.groupLabelText, { color: colors.foreground }]}>🥇 Группа Золото</Text>
               <Text style={[styles.groupSeason, { color: colors.mutedForeground }]}>{seasonLabel}</Text>
             </View>
-            <StandingsTable entries={goldEntries} colors={colors} showWDL />
+            <StandingsTable entries={goldEntries} colors={colors} />
 
             <View style={[styles.groupLabel, { borderBottomColor: colors.border, marginTop: 16 }]}>
               <Text style={[styles.groupLabelText, { color: colors.foreground }]}>🥈 Группа Серебро</Text>
               <Text style={[styles.groupSeason, { color: colors.mutedForeground }]}>{seasonLabel}</Text>
             </View>
-            <StandingsTable entries={silverEntries} colors={colors} showWDL />
+            <StandingsTable entries={silverEntries} colors={colors} />
           </View>
         </ScrollView>
         <View style={[styles.legend, { borderTopColor: colors.border }]}>
           <Text style={[styles.legendText, { color: colors.mutedForeground }]}>
-            И — матчи · В — победы · Н — ничьи · П — поражения · О — очки
+            М — матчи · ЗГ — забито · ПГ — пропущено · РМ — разница · О — очки
           </Text>
         </View>
       </ScrollView>
