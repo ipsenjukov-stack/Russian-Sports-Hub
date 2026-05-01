@@ -27,8 +27,8 @@ function e(
 
 // Zone rules: top-2 advance, 3rd = playoff, 4th = eliminated
 export const CUP_RPL_ZONES = [
-  { from: 1, to: 2, color: "#22c55e", label: "Следующий раунд" },
-  { from: 3, to: 3, color: "#F5C518", label: "Выбывание" },
+  { from: 1, to: 2, color: "#22c55e", label: "Плей-офф" },
+  { from: 3, to: 3, color: "#F5C518", label: "Квалификационные Плей-офф" },
 ] as const;
 
 export const CUP_RPL_GROUPS: CupGroup[] = [
