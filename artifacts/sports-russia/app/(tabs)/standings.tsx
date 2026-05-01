@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
-import { useStandings, StandingEntry, useSeasonMatches } from "@/hooks/useSportsData";
+import { useStandings, StandingEntry, useSeasonMatches, useLigaAPhase2Standings } from "@/hooks/useSportsData";
 import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/ErrorState";
 import { GearButton } from "@/components/GearButton";
@@ -22,8 +22,6 @@ import { LIGA_A_KEY } from "@/utils/leagueUtils";
 import {
   LIGA_A_PHASE1_GOLD,
   LIGA_A_PHASE1_SILVER,
-  LIGA_A_PHASE2_GOLD,
-  LIGA_A_PHASE2_SILVER,
 } from "@/data/ligaAStandings";
 
 const LOCAL_TEAM_LOGOS: Record<string, ReturnType<typeof require>> = {
@@ -176,9 +174,10 @@ function LigaAStandingsView({ colors, bottomPadding }: {
 }) {
   const [phase, setPhase] = useState<1 | 2>(2);
   const badgeMap = useBadgeMap();
+  const { gold: phase2Gold, silver: phase2Silver } = useLigaAPhase2Standings();
 
-  const goldEntries   = withBadges(phase === 1 ? LIGA_A_PHASE1_GOLD   : LIGA_A_PHASE2_GOLD,   badgeMap);
-  const silverEntries = withBadges(phase === 1 ? LIGA_A_PHASE1_SILVER : LIGA_A_PHASE2_SILVER, badgeMap);
+  const goldEntries   = phase === 1 ? withBadges(LIGA_A_PHASE1_GOLD,   badgeMap) : phase2Gold;
+  const silverEntries = phase === 1 ? withBadges(LIGA_A_PHASE1_SILVER, badgeMap) : phase2Silver;
 
   return (
     <>
