@@ -256,8 +256,9 @@ export default function StandingsScreen() {
   const { selectedLeagues, setSelectedLeagues } = useLeague();
 
   const selectedLeague = selectedLeagues[0] ?? "Российская Премьер-лига";
-  const isLigaA = selectedLeague === LIGA_A_KEY;
-  const isCup   = selectedLeague === "FONBET Кубок России";
+  const isLigaA    = selectedLeague === LIGA_A_KEY;
+  const isCup      = selectedLeague === "FONBET Кубок России";
+  const isLigaPari = selectedLeague === "Лига PARI";
 
   const { data, isLoading, isError, refetch } = useStandings("football", isLigaA || isCup ? undefined : selectedLeague);
   const { data: cupData, isLoading: cupLoading, isError: cupError, refetch: cupRefetch } = useCupBracket(selectedLeague);
@@ -323,7 +324,11 @@ export default function StandingsScreen() {
               <StandingsTable
                 entries={data?.entries ?? []}
                 colors={colors}
-                zones={[
+                zones={isLigaPari ? [
+                  { from: 1,  to: 2,  color: "#16A34A", label: "Повышение" },
+                  { from: 3,  to: 4,  color: "#F5C518", label: "Повышение. Плей-офф" },
+                  { from: 16, to: 18, color: "#8B1A1A", label: "Понижение" },
+                ] : [
                   { from: 13, to: 14, color: "#F5C518", label: "Понижение. Плей-офф" },
                   { from: 15, to: 16, color: "#8B1A1A", label: "Понижение" },
                 ]}
