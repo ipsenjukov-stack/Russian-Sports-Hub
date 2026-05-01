@@ -4,7 +4,7 @@ import {
   Pressable,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
-import { CupRound, CupMatch, CupBracketData } from "@/hooks/useSportsData";
+import { CupRound, CupMatch, CupBracketData, useSeasonMatches } from "@/hooks/useSportsData";
 import { CUP_RPL_GROUPS, CUP_RPL_ZONES, type GroupEntry } from "@/data/cupRplStandings";
 
 // ── bracket geometry ──────────────────────────────────────────────────────────
@@ -257,8 +257,16 @@ function GroupTable({ entries, badgeMap }: { entries: GroupEntry[]; badgeMap: Re
 }
 
 function GroupStandingsView({ data, bottomPadding }: { data: CupBracketData; bottomPadding: number }) {
+  const { data: seasonMatches } = useSeasonMatches();
+
   const badgeMap = useMemo(() => {
     const map: Record<string, string> = {};
+    // 1. Season matches cover all RPL teams (including those eliminated in group stage)
+    for (const m of seasonMatches ?? []) {
+      if (m.homeTeam?.name && m.homeTeam?.logo) map[m.homeTeam.name] = m.homeTeam.logo;
+      if (m.awayTeam?.name && m.awayTeam?.logo) map[m.awayTeam.name] = m.awayTeam.logo;
+    }
+    // 2. Cup match data — may override with more specific cup logos
     for (const path of [data.rpl, data.regions, data.playoff]) {
       for (const round of path?.rounds ?? []) {
         for (const m of round.matches) {
@@ -268,7 +276,7 @@ function GroupStandingsView({ data, bottomPadding }: { data: CupBracketData; bot
       }
     }
     return map;
-  }, [data]);
+  }, [data, seasonMatches]);
 
   const colors = useColors();
   return (

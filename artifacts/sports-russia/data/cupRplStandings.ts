@@ -56,7 +56,7 @@ export const CUP_RPL_GROUPS: CupGroup[] = [
       e(1, "Спартак",           6, 4, 1, 1, 13,  5, 13),
       e(2, "Динамо Махачкала",  6, 3, 2, 1,  9,  7, 13),
       e(3, "Ростов",            6, 2, 1, 3,  8,  9,  7),
-      e(4, "Нижний Новгород",   6, 1, 0, 5,  4, 13,  3),
+      e(4, "Пари НН",            6, 1, 0, 5,  4, 13,  3),
     ],
   },
   {
@@ -70,8 +70,3 @@ export const CUP_RPL_GROUPS: CupGroup[] = [
   },
 ];
 
-// API name → data file name (for badge lookup)
-export const CUP_RPL_BADGE_ALIASES: Record<string, string> = {
-  "Нижний Новгород": "Нижний Новгород",
-  "Пари НН":         "Нижний Новгород",
-};
