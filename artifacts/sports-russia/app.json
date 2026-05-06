@@ -14,9 +14,16 @@
       "backgroundColor": "#CC0000"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "ru.sportsrussia.app"
     },
-    "android": {},
+    "android": {
+      "package": "ru.sportsrussia.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#CC0000"
+      }
+    },
     "web": {
       "favicon": "./assets/images/favicon.png"
     },
