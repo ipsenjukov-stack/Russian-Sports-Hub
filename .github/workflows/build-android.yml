@@ -19,7 +19,7 @@ on:
 env:
   NODE_VERSION: '24'
   JAVA_VERSION: '17'
-  DEFAULT_API_DOMAIN: 'sports-russia.replit.app'
+  DEFAULT_API_DOMAIN: 'russian-sports-hub.replit.app'
 
 jobs:
   build:
